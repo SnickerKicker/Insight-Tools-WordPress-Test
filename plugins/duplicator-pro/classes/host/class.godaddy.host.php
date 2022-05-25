@@ -31,6 +31,13 @@ class DUP_PRO_GoDaddy_Host implements DUP_PRO_Host_interface
         add_filter('duplicator_pro_overwrite_params_data', array(__CLASS__, 'installerParams'));
     }
 
+    /**
+     * In godaddy the packag build mode must be Dup archive
+     *
+     * @param int $archiveBuildMode archive build mode
+     * 
+     * @return int
+     */
     public static function defaultArchiveBuildMode($archiveBuildMode)
     {
         return DUP_PRO_Archive_Build_Mode::DupArchive;

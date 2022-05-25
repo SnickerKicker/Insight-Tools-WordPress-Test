@@ -2116,10 +2116,8 @@ FATAL ERROR MESSAGES
     display: block;
 }
 
-div.more-faq-link {
-    padding:15px 0 15px 0;
-    text-align:center;
-    margin-bottom:25px;
+.more-faq-link {
+    text-align: center;
 }
 </style>
 <?php

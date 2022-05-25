@@ -22,7 +22,10 @@ class DUP_PRO_WPEngine_Host implements DUP_PRO_Host_interface
 
     public function isHosting()
     {
-        return apply_filters('duplicator_pro_wp_engine_host_check', file_exists(WPMU_PLUGIN_DIR . '/wpengine-security-auditor.php'));
+        ob_start();
+        phpinfo(INFO_ENVIRONMENT);
+        $serverinfo = ob_get_clean();
+        return apply_filters('duplicator_pro_wp_engine_host_check', (strpos($serverinfo, "WPENGINE_ACCOUNT") !== false));
     }
 
     public function init()

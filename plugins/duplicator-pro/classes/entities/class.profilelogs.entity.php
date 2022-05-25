@@ -15,7 +15,7 @@
  */
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
-require_once(DUPLICATOR____PATH   . '/classes/entities/class.json.entity.base.php');
+
 class DUP_PRO_Profile_Logs_Entity extends DUP_PRO_JSON_Entity_Base
 {
     public $profileLogs;

@@ -26,9 +26,6 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 use Duplicator\Libs\Snap\SnapURL;
 use Duplicator\Libs\Snap\SnapUtil;
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.secure.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.schedule.entity.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.php');
 require_once(DUPLICATOR____PATH . '/classes/class.server.php');
 require_once(DUPLICATOR____PATH . '/classes/class.system.checker.php');

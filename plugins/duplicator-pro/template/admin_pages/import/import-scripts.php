@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 use Duplicator\Controllers\ImportPageController;
@@ -170,6 +170,12 @@ $importChunkSize = ImportPageController::getChunkSize();
                     return false;
                 });
 
+                DupPro.ImportManager.packagesList.on('click', '.dup-import-set-archive-password', function (event) {
+                    event.stopPropagation();
+                    DupPro.ImportManager.setArchivePassword($(this));
+                    return false;
+                });
+
                 DupPro.ImportManager.initRemoteUpload();
             },
             initRemoteUpload: function () {
@@ -198,11 +204,12 @@ $importChunkSize = ImportPageController::getChunkSize();
                 });
             },
             remoteUploadCall: function (uploadUrl, restoreDownload) {
-                Duplicator.Util.ajaxWrapper({
-                    action: 'duplicator_pro_import_remote_download',
-                    url: uploadUrl,
-                    restoreDownload : (restoreDownload == null ? '' : JSON.stringify(restoreDownload)),
-                    nonce: '<?php echo wp_create_nonce('duplicator_pro_remote_download'); ?>'
+                Duplicator.Util.ajaxWrapper(
+                    {
+                        action: 'duplicator_pro_import_remote_download',
+                        url: uploadUrl,
+                        restoreDownload : (restoreDownload == null ? '' : JSON.stringify(restoreDownload)),
+                        nonce: '<?php echo wp_create_nonce('duplicator_pro_remote_download'); ?>'
                     },
                     function (result, data, funcData, textStatus, jqXHR) {
                         if (DupPro.ImportManager.packageRowUploading == null) {
@@ -212,11 +219,9 @@ $importChunkSize = ImportPageController::getChunkSize();
                         }
 
                         if (funcData.status == 'complete') {
-                            console.log('REMOTE UPLOAD COMPLETE',funcData, result);
                             DupPro.ImportManager.onFileComplete(null, uploadUrl, result);
                             DupPro.ImportManager.onComplete(null);
                         } else {
-                            console.log('REMOTE UPLOAD CHUNK',funcData, result);
                             DupPro.ImportManager.updateProgress(funcData.remoteChunk.offset, funcData.remoteChunk.fullSize);
                             DupPro.ImportManager.remoteUploadCall(uploadUrl, funcData.remoteChunk);
                         }
@@ -225,7 +230,30 @@ $importChunkSize = ImportPageController::getChunkSize();
                     function (result, data, funcData, textStatus, jqXHR) {
                         DupPro.ImportManager.uploadError(result.data.message);
                         DupPro.ImportManager.onComplete(null);
-                        console.log("RESPONSE ERROR",result);
+                        return '';
+                    }
+                );
+            },
+            setArchivePassword: function (button) {
+                let row = button.closest('.dup-pro-import-package');
+                let archiveFile = row.data('path');
+                let password = row.find('.dup-import-archive-password-request .dup-import-archive-password').val();
+
+                Duplicator.Util.ajaxWrapper(
+                    {
+                        action: 'duplicator_pro_import_set_archive_password',
+                        nonce: '<?php echo wp_create_nonce('duplicator_pro_import_set_archive_password'); ?>',
+                        archive: archiveFile,
+                        password: password
+                    },
+                    function (result, data, funcData, textStatus, jqXHR) {
+                        DupPro.ImportManager.packageRowUploading = row;
+                        DupPro.ImportManager.onFileComplete(null, archiveFile, result, false);
+                        DupPro.ImportManager.onComplete(null);
+                        return '';
+                    },
+                    function (result, data, funcData, textStatus, jqXHR) {
+                        DupPro.addAdminMessage(data.message, 'error', {'hideDelay': 5000});
                         return '';
                     }
                 );
@@ -348,7 +376,7 @@ $importChunkSize = ImportPageController::getChunkSize();
 
                 DupPro.ImportManager.updateProgress(position, file.size);
             },
-            onFileComplete: function (e, file, response)
+            onFileComplete: function (e, file, response, showMessage = true)
             {
                 let result = null;
                 if (typeof response === 'string' || response instanceof String) {
@@ -357,8 +385,6 @@ $importChunkSize = ImportPageController::getChunkSize();
                     result = response;
                 }
                 DupPro.ImportManager.resetUploadTimes();
-
-                console.log('RESPONSE ', result);
 
                 if (result.success == false) {
                     DupPro.ImportManager.uploadError(result.data.message);
@@ -375,6 +401,7 @@ $importChunkSize = ImportPageController::getChunkSize();
                     DupPro.ImportManager.autoLaunchLink = result.data.funcData.installerPageLink;
                 } else {
                     DupPro.ImportManager.autoLaunchLink = false;
+                    DupPro.ImportManager.packageRowUploading.find('.dup-pro-import-action-package-detail-toggle').trigger('click');
                 }
                 DupPro.ImportManager.packageRowUploading.find('.dup-pro-import-package-detail').html(result.data.funcData.htmlDetails);
                 DupPro.ImportManager.packageRowUploading.find('.size').text(Duplicator.Util.humanFileSize(result.data.funcData.archiveSize));
@@ -382,7 +409,9 @@ $importChunkSize = ImportPageController::getChunkSize();
                 DupPro.ImportManager.packageRowUploading.find('.funcs .dup-pro-loader').addClass('no-display');
                 DupPro.ImportManager.packageRowUploading.find('.funcs .actions').removeClass('no-display');
                 DupPro.ImportManager.packageRowUploading = null;
-                <?php $packageUploaded->showMessage(); ?>
+                if (showMessage) {
+                    <?php $packageUploaded->showMessage(); ?>
+                }
             },
             onFileError: function (e, file, error)
             {
@@ -480,7 +509,6 @@ $importChunkSize = ImportPageController::getChunkSize();
                 }
             },
             isAlreadyExists: function (name) {
-
                 let alreadyExists = false;
                 DupPro.ImportManager.packagesList.find('tbody .name .text').each(function () {
                     if (name === $(this).text()) {
@@ -506,16 +534,17 @@ $importChunkSize = ImportPageController::getChunkSize();
                 DupPro.ImportManager.packageRowUploading = null;
             },
             removePackage: function () {
-                Duplicator.Util.ajaxWrapper({
-                    action: 'duplicator_pro_import_package_delete',
-                    path: DupPro.ImportManager.packageRowToDelete.data('path'),
-                    nonce: '<?php echo wp_create_nonce('duplicator_pro_import_package_delete'); ?>'
-                },
-                        function (result, data, funcData, textStatus, jqXHR) {
-                            DupPro.ImportManager.removeRow(DupPro.ImportManager.packageRowToDelete);
-                            <?php $packageRemoved->showMessage(); ?>;
-                            return '';
-                        }
+                Duplicator.Util.ajaxWrapper(
+                    {
+                        action: 'duplicator_pro_import_package_delete',
+                        path: DupPro.ImportManager.packageRowToDelete.data('path'),
+                        nonce: '<?php echo wp_create_nonce('duplicator_pro_import_package_delete'); ?>'
+                    },
+                    function (result, data, funcData, textStatus, jqXHR) {
+                        DupPro.ImportManager.removeRow(DupPro.ImportManager.packageRowToDelete);
+                        <?php $packageRemoved->showMessage(); ?>;
+                        return '';
+                    }
                 );
             },
             removeRow: function (row) {
@@ -553,36 +582,37 @@ $importChunkSize = ImportPageController::getChunkSize();
                 DupPro.ImportManager.uploaderWrapper
             },
             updateViewMode: function (viewMode) {
-                Duplicator.Util.ajaxWrapper({
-                    action: 'duplicator_pro_import_set_view_mode',
-                    nonce: '<?php echo wp_create_nonce('duplicator_pro_import_set_view_mode'); ?>',
-                    view_mode: viewMode
-                },
-                        function (result, data, funcData, textStatus, jqXHR) {
-                            switch (funcData) {
-                                case '<?php echo ImportPageController::VIEW_MODE_ADVANCED; ?>':
-                                    $('.dup-pro-import-view-single').removeClass('active');
-                                    $('.dup-pro-import-view-list').addClass('active');
-                                    $('#dup-pro-basic-mode-message').addClass('no-display');
-                                    DupPro.ImportManager.packagesAviable.removeClass('view-single-item').addClass('view-list-item');
-                                    break;
-                                case '<?php echo ImportPageController::VIEW_MODE_BASIC; ?>':
-                                    $('.dup-pro-import-view-list').removeClass('active');
-                                    $('.dup-pro-import-view-single').addClass('active');
-                                    $('#dup-pro-basic-mode-message').removeClass('no-display');
-                                    DupPro.ImportManager.packagesAviable.removeClass('view-list-item').addClass('view-single-item');
-                                    break;
-                                default:
-                                    throw '<?php DUP_PRO_U::_e('Invalid view mode'); ?>';
-                            }
-                            DupPro.ImportManager.checkMaxUploadedFiles();
-                            return '';
-
-                        },
-                        function (result, data, funcData, textStatus, jqXHR) {
-                            DupPro.addAdminMessage(data.message, 'error', {'hideDelay': 5000});
-                            return '';
+                Duplicator.Util.ajaxWrapper(
+                    {
+                        action: 'duplicator_pro_import_set_view_mode',
+                        nonce: '<?php echo wp_create_nonce('duplicator_pro_import_set_view_mode'); ?>',
+                        view_mode: viewMode
+                    },
+                    function (result, data, funcData, textStatus, jqXHR) {
+                        switch (funcData) {
+                            case '<?php echo ImportPageController::VIEW_MODE_ADVANCED; ?>':
+                                $('.dup-pro-import-view-single').removeClass('active');
+                                $('.dup-pro-import-view-list').addClass('active');
+                                $('#dup-pro-basic-mode-message').addClass('no-display');
+                                DupPro.ImportManager.packagesAviable.removeClass('view-single-item').addClass('view-list-item');
+                                break;
+                            case '<?php echo ImportPageController::VIEW_MODE_BASIC; ?>':
+                                $('.dup-pro-import-view-list').removeClass('active');
+                                $('.dup-pro-import-view-single').addClass('active');
+                                $('#dup-pro-basic-mode-message').removeClass('no-display');
+                                DupPro.ImportManager.packagesAviable.removeClass('view-list-item').addClass('view-single-item');
+                                break;
+                            default:
+                                throw '<?php DUP_PRO_U::_e('Invalid view mode'); ?>';
                         }
+                        DupPro.ImportManager.checkMaxUploadedFiles();
+                        return '';
+
+                    },
+                    function (result, data, funcData, textStatus, jqXHR) {
+                        DupPro.addAdminMessage(data.message, 'error', {'hideDelay': 5000});
+                        return '';
+                    }
                 );
             },
             console: function () {

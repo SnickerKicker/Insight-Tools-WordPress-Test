@@ -46,11 +46,7 @@ class DUP_PRO_StorageSupported
     public static function isOneDriveSupported()
     {
         if (!isset(self::$isOneDriveSupported)) {
-            self::$isOneDriveSupported = (
-                            DUP_PRO_U::PHP56()
-                                &&
-                            self::isCURLExtensionEnabled()
-                        );
+            self::$isOneDriveSupported = self::isCURLExtensionEnabled();
         }
 
         return self::$isOneDriveSupported;
@@ -116,11 +112,7 @@ class DUP_PRO_StorageSupported
         $notices = array();
 
         if (!self::isOneDriveSupported()) {
-            if (!DUP_PRO_U::PHP56() && !self::isCURLExtensionEnabled()) {
-                $notices[] = sprintf(DUP_PRO_U::esc_html__('OneDrive requires PHP 5.6+ and PHP CURL extension enabled. This server is running PHP (%s).'), PHP_VERSION);
-            } else if (!DUP_PRO_U::PHP56()) {
-                $notices[] = sprintf(DUP_PRO_U::esc_html__('OneDrive requires PHP 5.6+. This server is running PHP (%s).'), PHP_VERSION);
-            } else if (!self::isCURLExtensionEnabled()) {
+            if (!self::isCURLExtensionEnabled()) {
                 $notices[] = DUP_PRO_U::esc_html__('OneDrive requires the PHP CURL extension enabled.');
             }
         }

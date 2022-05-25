@@ -12,13 +12,13 @@
 
 namespace Duplicator\Installer\Core\Params\Descriptors;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Installer\Core\Params\Items\ParamItem;
 use Duplicator\Installer\Core\Params\Items\ParamForm;
 use Duplicator\Installer\Core\Params\Items\ParamFormPass;
 use DUPX_ArchiveConfig;
 use DUPX_InstallerState;
-use DUPX_Security;
 use DUPX_View_Funcs;
 
 /**
@@ -47,7 +47,7 @@ final class ParamDescSecurity implements DescriptorInterface
             array(
                 'label'    => 'Password:',
                 'status' => function (ParamForm $param) {
-                    if (DUPX_Security::getInstance()->getSecurityType() == DUPX_Security::SECURITY_PASSWORD) {
+                    if (Security::getInstance()->getSecurityType() == Security::SECURITY_PASSWORD) {
                         return ParamForm::STATUS_ENABLED;
                     } else {
                         return ParamForm::STATUS_DISABLED;
@@ -74,7 +74,7 @@ final class ParamDescSecurity implements DescriptorInterface
                 'status' => function (ParamForm $param) {
                     if (!DUPX_InstallerState::isOverwrite()) {
                         return ParamForm::STATUS_SKIP;
-                    } elseif (DUPX_Security::getInstance()->getSecurityType() == DUPX_Security::SECURITY_ARCHIVE) {
+                    } elseif (Security::getInstance()->getSecurityType() == Security::SECURITY_ARCHIVE) {
                         return ParamForm::STATUS_ENABLED;
                     } else {
                         return ParamForm::STATUS_DISABLED;

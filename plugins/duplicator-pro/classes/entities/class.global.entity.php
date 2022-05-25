@@ -16,6 +16,7 @@
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
 use Duplicator\Libs\Snap\SnapIO;
+use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Utils\Crypt\CryptBlowfish;
 
@@ -64,7 +65,6 @@ abstract class DUP_PRO_JSON_Mode
 abstract class DUP_PRO_Archive_Build_Mode
 {
     const Unconfigured = -1;
-    const Auto         = 0; // should no longer be used
     const Shell_Exec   = 1;
     const ZipArchive   = 2;
     const DupArchive   = 3;
@@ -116,6 +116,15 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
     const INSTALLER_NAME_MODE_WITH_HASH = 'withhash';
     const INSTALLER_NAME_MODE_SIMPLE    = 'simple';
 
+    const CLEANUP_HOOK                  = 'dup_pro_cleanup_hook';
+    const CLEANUP_INTERVAL_NAME         = 'dup_pro_custom_interval';
+    const CLEANUP_FILE_TIME_DELAY       = 81000; // In seconds, 22.5 hours
+    const CLEANUP_EMAIL_NOTICE_INTERVAL = 24; // In hours
+
+    const CLEANUP_MODE_OFF  = 0;
+    const CLEANUP_MODE_MAIL = 1;
+    const CLEANUP_MODE_AUTO = 2;
+
     // Note: All user mode settings are set in ResetUserSettings()
     //GENERAL
     public $uninstall_settings; // no longer used
@@ -145,13 +154,15 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
     public $server_load_reduction;
     public $max_package_runtime_in_min   = DUP_PRO_Constants::DEFAULT_MAX_PACKAGE_RUNTIME_IN_MIN;
     public $php_max_worker_time_in_sec   = DUP_PRO_Constants::DEFAULT_MAX_WORKER_TIME;
+    //PACKAGES::Basic::Cleanup
+    public $cleanup_mode                 = self::CLEANUP_MODE_OFF;
+    public $cleanup_email                = '';
+    public $auto_cleanup_hours           = 24;
     //PACKAGES::Adanced
     public $lock_mode;
     public $json_mode;
     public $ajax_protocol;
     public $custom_ajax_url;
-    public $server_kick_off_sslverify    = false; /** @todo Delete this in v4.5.4
-                                                   *  it's not referenced in code anymore starting from v4.5.2 */
     public $clientside_kickoff;
     public $basic_auth_enabled;
     public $basic_auth_user;  // Not actively used but required for upgrade
@@ -163,7 +174,6 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
     //SCHEDULES
     public $send_email_on_build_mode;
     public $notification_email_address;
-    public $cron_parser_lib = DUP_PRO_Schedule_Entity::CRON_PARSER_LIB_CRON_EXP;
     //STORAGE
     public $storage_htaccess_off;
     public $max_storage_retries;
@@ -279,6 +289,11 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         $this->max_package_runtime_in_min = DUP_PRO_Constants::DEFAULT_MAX_PACKAGE_RUNTIME_IN_MIN;
         $this->php_max_worker_time_in_sec = DUP_PRO_Constants::DEFAULT_MAX_WORKER_TIME;
 
+        //PACKAGES::Basic::Cleanup
+        $this->cleanup_mode               = self::CLEANUP_MODE_OFF;
+        $this->cleanup_email              = get_option('admin_email');
+        $this->auto_cleanup_hours         = 24;
+
         //PACKAGES::Advanced
         $this->lock_mode                 = self::get_lock_type();
         $this->json_mode                 = DUP_PRO_JSON_Mode::PHP;
@@ -296,7 +311,6 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         //SCHEDULES
         $this->send_email_on_build_mode   = DUP_PRO_Email_Build_Mode::Email_On_Failure;
         $this->notification_email_address = '';
-        $this->cron_parser_lib = DUP_PRO_Schedule_Entity::CRON_PARSER_LIB_CRON_EXP;
 
         //STORAGE
         $this->storage_htaccess_off            = false;
@@ -424,7 +438,7 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         $this->uninstall_tables   = $global_data->uninstall_tables;
         $this->wpfront_integrate  = $global_data->wpfront_integrate;
 
-        //PACKAGES::Processing
+        //PACKAGES::Basic
         $this->package_mysqldump          = $global_data->package_mysqldump;
         $this->package_mysqldump_path     = $global_data->package_mysqldump_path;
         $this->package_mysqldump_qrylimit = $global_data->package_mysqldump_qrylimit;
@@ -441,6 +455,10 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         $this->server_load_reduction      = $global_data->server_load_reduction;
         $this->max_package_runtime_in_min = $global_data->max_package_runtime_in_min;
         $this->php_max_worker_time_in_sec = $global_data->php_max_worker_time_in_sec;
+
+        $this->cleanup_mode               = $global_data->cleanup_mode;
+        $this->cleanup_email              = $global_data->cleanup_email;
+        $this->auto_cleanup_hours         = $global_data->auto_cleanup_hours;
 
         //PACKAGES::Adanced
         $this->lock_mode           = $global_data->lock_mode;
@@ -463,7 +481,6 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         //SCHEDULES
         $this->send_email_on_build_mode   = $global_data->send_email_on_build_mode;
         $this->notification_email_address = $global_data->notification_email_address;
-        $this->cron_parser_lib            = $global_data->cron_parser_lib;
 
         //STORAGE
         $this->storage_htaccess_off            = $global_data->storage_htaccess_off;
@@ -506,13 +523,14 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
     }
 
     /**
-     * Check if build mode is avaiable
+     * Check if build mode is available
      *
      * @param int $buildMode build mode constant
-     * 
+     *
      * @return bool
      */
-    public static function isBuildModeAvaiable($buildMode) {
+    public static function isBuildModeAvaiable($buildMode)
+    {
         switch ($buildMode) {
             case DUP_PRO_Archive_Build_Mode::Unconfigured:
                 return false;
@@ -528,7 +546,8 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         }
     }
 
-    public function getBuildMode() {
+    public function getBuildMode()
+    {
         $archive_build_mode = $this->archive_build_mode;
 
         switch ($archive_build_mode) {
@@ -564,7 +583,6 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
                 break;
             default:
                 throw new Exception('Invalid engine');
-
         }
         return $archive_build_mode;
     }
@@ -609,31 +627,31 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         //DATABASE
         $dbMode = is_null($dbMode) ? SnapUtil::filterInputDefaultSanitizeString(INPUT_POST, '_package_dbmode') : $dbMode;
         $phpDumpMode = is_null($phpDumpMode) ? filter_input(
-                INPUT_POST,
-                '_phpdump_mode',
-                FILTER_VALIDATE_INT,
-                    array('options' => array(
+            INPUT_POST,
+            '_phpdump_mode',
+            FILTER_VALIDATE_INT,
+            array('options' => array(
                         'default'   => 0,
                         'min_range' => 0,
                         'max_range' => 1
                     )
                 )
-            ) : $phpDumpMode;
+        ) : $phpDumpMode;
         $dbMysqlDumpQueryLimit = is_null($dbMysqlDumpQueryLimit) ? filter_input(
-                INPUT_POST,
-                '_package_mysqldump_qrylimit',
-                FILTER_VALIDATE_INT,
-                array(
+            INPUT_POST,
+            '_package_mysqldump_qrylimit',
+            FILTER_VALIDATE_INT,
+            array(
                     'options' => array(
                         'default'   => DUP_PRO_Constants::DEFAULT_MYSQL_DUMP_CHUNK_SIZE,
                         'min_range' => DUP_PRO_Constants::MYSQL_DUMP_CHUNK_SIZE_MIN_LIMIT,
                         'max_range' => DUP_PRO_Constants::MYSQL_DUMP_CHUNK_SIZE_MAX_LIMIT
                     )
                 )
-            ) : $dbMysqlDumpQueryLimit;
+        ) : $dbMysqlDumpQueryLimit;
 
-        $packageMysqldumpPath = is_null($packageMysqldumpPath) ? 
-            SnapUtil::filterInputDefaultSanitizeString(INPUT_POST, 'packageMysqldumpPath') : 
+        $packageMysqldumpPath = is_null($packageMysqldumpPath) ?
+            SnapUtil::filterInputDefaultSanitizeString(INPUT_POST, 'packageMysqldumpPath') :
             $packageMysqldumpPath;
         $packageMysqldumpPath = SnapUtil::sanitizeNSCharsNewlineTrim($packageMysqldumpPath);
         $packageMysqldumpPath = preg_match('/^([A-Za-z]\:)?[\/\\\\]/', $packageMysqldumpPath) ? $packageMysqldumpPath : '';
@@ -651,6 +669,224 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
         $this->package_mysqldump_qrylimit = $dbMysqlDumpQueryLimit;
     }
 
+    /**
+     * Sets cleanup fields and configures WP Cron accordingly
+     *
+     * @param int    $cleanup_mode
+     * @param string $cleanup_email
+     * @param int    $auto_cleanup_hours
+     *
+     * @return void
+     */
+    public function setCleanupFields($cleanup_mode = null, $cleanup_email = null, $auto_cleanup_hours = null)
+    {
+        $this->cleanup_mode = is_null($cleanup_mode) ? filter_input(
+            INPUT_POST,
+            'cleanup_mode',
+            FILTER_VALIDATE_INT,
+            array(
+                'options' => array(
+                    'default'   => self::CLEANUP_MODE_OFF,
+                    'min_range' => 0,
+                    'max_range' => 2
+                )
+            )
+        ) : $cleanup_mode;
+
+        $this->cleanup_email = is_null($cleanup_email) ? $_REQUEST['cleanup_email'] : $cleanup_email;
+
+        $this->auto_cleanup_hours = is_null($auto_cleanup_hours) ? filter_input(
+            INPUT_POST,
+            'auto_cleanup_hours',
+            FILTER_VALIDATE_INT,
+            array(
+                'options' => array(
+                    'default'   => 24,
+                    'min_range' => 1
+                )
+            )
+        ) : $auto_cleanup_hours;
+
+        self::cleanupScheduleSetup();
+    }
+
+    /**
+     * Schedules cron event for installer files cleanup purposes,
+     * and unschedules it if it's not needed anymore.
+     *
+     * @return void
+     */
+    public static function cleanupScheduleSetup()
+    {
+        $global = self::get_instance();
+        SnapWP::unscheduleEvent(self::CLEANUP_HOOK);
+        if ($global->cleanup_mode == self::CLEANUP_MODE_MAIL) {
+            $nextRunTime = time() + self::CLEANUP_EMAIL_NOTICE_INTERVAL * 3600;
+            SnapWP::scheduleEvent($nextRunTime, self::CLEANUP_INTERVAL_NAME, self::CLEANUP_HOOK);
+        } else if ($global->cleanup_mode == self::CLEANUP_MODE_AUTO) {
+            $nextRunTime = time() + $global->auto_cleanup_hours * 3600;
+            SnapWP::scheduleEvent($nextRunTime, self::CLEANUP_INTERVAL_NAME, self::CLEANUP_HOOK);
+        }
+    }
+
+    /**
+     * Customizes schedules according to current cleanup_mode. If necessary, it
+     * adds a custom cron schedule that will run every N hours.
+     *
+     * @param array $schedules An array of non-default cron schedules.
+     * 
+     * @return array Filtered array of non-default cron schedules.
+     */
+    public static function customCleanupCronInterval($schedules)
+    {
+        $global = self::get_instance();
+
+        switch ($global->cleanup_mode) {
+            case self::CLEANUP_MODE_OFF:
+                // No need to modify anything
+                break;
+            case self::CLEANUP_MODE_MAIL:
+                $schedules[self::CLEANUP_INTERVAL_NAME] = array(
+                    'interval' => self::CLEANUP_EMAIL_NOTICE_INTERVAL * 3600, // In seconds, every N hours
+                    'display'  => sprintf(esc_html__('Every %1$d hours'), self::CLEANUP_EMAIL_NOTICE_INTERVAL)
+                );
+                break;
+            case  self::CLEANUP_MODE_AUTO:
+                $schedules[self::CLEANUP_INTERVAL_NAME] = array(
+                    'interval' => $global->auto_cleanup_hours * 3600, // In seconds, every N hours
+                    'display'  => sprintf(esc_html__('Every %1$d hours'), $global->auto_cleanup_hours)
+                );
+                break;
+            default:
+                throw new Exception('Invalid cleanup mode');
+        }
+        return $schedules;
+    }
+
+    /**
+     * The function that gets executed by WP Cron for cleanup of installer files.
+     * It does different tasks based on current cleanup_mode setting.
+     *
+     * @return void
+     */
+    public static function cleanupCronJob()
+    {
+        $global = self::get_instance();
+        if ($global->cleanup_mode == self::CLEANUP_MODE_OFF) {
+            return;
+        }
+
+        // At this point DUP_PRO_LOG is not always initialized, so we have to do it
+        \DUP_PRO_LOG::init();
+        $websiteUrl = \Duplicator\Libs\Snap\SnapURL::getCurrentUrl(false, false, 1);
+        $to = $global->cleanup_email;
+        if (empty($to)) {
+            $to = get_option('admin_email');
+        }
+
+        if ($global->cleanup_mode == self::CLEANUP_MODE_MAIL) {
+            // Email Notice cron job routine for cleanup of installer files
+
+            $listOfInstallerFiles = \DUP_PRO_Migration::checkInstallerFilesList();
+            $filesToRemove = array();
+
+            foreach ($listOfInstallerFiles as $path) {
+                if (self::CLEANUP_FILE_TIME_DELAY > 0) {
+                    // We take into account only files older than CLEANUP_FILE_TIME_DELAY
+                    if (time() - filectime($path) > self::CLEANUP_FILE_TIME_DELAY) {
+                        $filesToRemove[] = $path;
+                    }
+                } else {
+                    $filesToRemove[] = $path;
+                }
+            }
+
+            if (count($filesToRemove) > 0 && !empty($to)) {
+                // Send an Email Notice
+                $subject  = __("Action required", 'duplicator-pro');
+                $message = sprintf(__('This email is sent by your Wordpress plugin "Duplicator Pro" from website: %1$s. ', 'duplicator-pro'), $websiteUrl);
+                $message .= __('You received this email because Cleanup mode is set to "Email Notice". ', 'duplicator-pro');
+                $message .= __('Cleanup routine discovered that some installer files (leftovers from migration) were not removed. ', 'duplicator-pro');
+                $message .= __('We strongly advise you to remove these files. ', 'duplicator-pro');
+                $message .= __('Here is the list of files found on your website that you should remove:', 'duplicator-pro') . "<br/>";
+                foreach ($filesToRemove as $path) {
+                    $message .= "-> $path<br/>";
+                }
+                $message .= "<br/>";
+                $message .= __('Note: You could enable "Auto Cleanup" mode if you go to:', 'duplicator-pro') . "<br/>";
+                $message .= __('WordPress Admin > Duplicator Pro > Settings > Packages Tab > Cleanup.', 'duplicator-pro') . "<br/>";
+                $message .= __('That mode will do cleanup of those files automatically for you.', 'duplicator-pro') . "<br/>";
+                $message .= "<br/>";
+                $message .= __('Best regards,', 'duplicator-pro') . "<br/>";
+                $message .= __('Duplicator Pro', 'duplicator-pro');
+
+                if (wp_mail($to, $subject, $message, array('Content-Type: text/html; charset=UTF-8'))) {
+                    // OK
+                    \DUP_PRO_LOG::trace('wp_mail sent email notice regarding cleanup of installer files');
+                } else {
+                    \DUP_PRO_LOG::trace("Problem sending email notice regarding cleanup of installer files to {$to}");
+                }
+            }
+            return;
+        } elseif ($global->cleanup_mode == self::CLEANUP_MODE_AUTO) {
+            // Auto Cleanup cron job routine for cleanup of installer files
+
+            $installerFiles = \DUP_PRO_Migration::cleanMigrationFiles(false, self::CLEANUP_FILE_TIME_DELAY);
+            if (count($installerFiles) == 0) {
+                // No installer files were found, so we do nothing else
+                return;
+            }
+
+            $filesFailedRemoval = array();
+            foreach ($installerFiles as $path => $success) {
+                if (!$success) {
+                    $filesFailedRemoval[] = $path;
+                }
+            }
+            if (count($filesFailedRemoval) == 0) {
+                // All found installer files were removed successfully,
+                // or they did not even need to be removed yet because of CLEANUP_FILE_TIME_DELAY
+                return;
+            }
+
+            // If this is executed that means that some of installer files
+            // could not be removed for some reason (permission issues?)
+            if (!empty($to)) {
+                // Send an Email Notice about files that could not be removed during auto cleanup
+                $subject  = __("Action required", 'duplicator-pro');
+                $message = sprintf(__('This email is sent by your Wordpress plugin "Duplicator Pro" from website: %1$s. ', 'duplicator-pro'), $websiteUrl);
+                $message .= __('"Auto Cleanup" mode is ON, ', 'duplicator-pro');
+                $message .= __('however cleanup routine discovered that some installer files (leftovers from migration) could not be removed. ', 'duplicator-pro');
+                $message .= __('We strongly advise you to remove those files manually. ', 'duplicator-pro');
+                $message .= __('Here is the list of files found on your website that you should remove:', 'duplicator-pro') . "<br/>";
+                foreach ($filesFailedRemoval as $path) {
+                    $message .= "-> $path<br/>";
+                }
+                $message .= "<br/>";
+                $message .= __('Those files probably could not be removed due to permission issues. ', 'duplicator-pro');
+                $message .= sprintf(
+                    __('You can find more info in FAQ %1$son this link%2$s.', 'duplicator-pro'),
+                    "<a href='https://snapcreek.com/duplicator/docs/faqs-tech/#faq-trouble-perms-100-q' target='_blank'>",
+                    "</a>"
+                ) . "<br/>";
+                $message .= "<br/>";
+                $message .= __('Note: To edit "Cleanup" settings go to:', 'duplicator-pro') . "<br/>";
+                $message .= __('WordPress Admin > Duplicator Pro > Settings > Packages Tab > Cleanup.', 'duplicator-pro') . "<br/>";
+                $message .= "<br/>";
+                $message .= __('Best regards,', 'duplicator-pro') . "<br/>";
+                $message .= __('Duplicator Pro', 'duplicator-pro');
+
+                if (wp_mail($to, $subject, $message, array('Content-Type: text/html; charset=UTF-8'))) {
+                    // OK
+                    \DUP_PRO_LOG::trace('wp_mail sent email notice regarding failed auto cleanup of installer files');
+                } else {
+                    \DUP_PRO_LOG::trace("Problem sending email notice regarding failed auto cleanup of installer files to {$to}");
+                }
+            }
+            return;
+        }
+    }
+
     public function setArchiveMode($archiveBuildMode = null, $zipArchiveMode = null, $archiveCompression = null, $ziparchiveValidation = null, $ziparchiveChunkSizeInMb = null)
     {
         $isZipAvailable = (DUP_PRO_Zip_U::getShellExecZipPath() != null);
@@ -666,7 +902,7 @@ class DUP_PRO_Global_Entity extends DUP_PRO_JSON_Entity_Base
                 )
             )
         ) : $archiveBuildMode;
-        
+
         // Something has changed which invalidates Shell exec so move it to ZA
         $this->archive_build_mode = (!$isZipAvailable && ($prelimBuildMode == DUP_PRO_Archive_Build_Mode::Shell_Exec)) ? DUP_PRO_Archive_Build_Mode::ZipArchive : $prelimBuildMode;
         $this->ziparchive_mode    = is_null($zipArchiveMode) ? filter_input(

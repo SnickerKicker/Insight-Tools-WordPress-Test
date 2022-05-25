@@ -5,7 +5,7 @@
  * Rendering the page automatically generates the page wrapper and level 2 and 3 minuses.
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -197,9 +197,11 @@ abstract class AbstractMenuPageController extends AbstractSinglePageController i
     /**
      * Return current slugs.
      *
+     * @param $checkSlugExists if true check slug is registered and return menu level false if don't exists
+     *
      * @return string[]
      */
-    public function getCurrentMenuSlugs()
+    public function getCurrentMenuSlugs($checkSlugExists = true)
     {
         $levels = ControllersManager::getMenuLevels();
 
@@ -207,13 +209,13 @@ abstract class AbstractMenuPageController extends AbstractSinglePageController i
         $result[0] = $levels[ControllersManager::QUERY_STRING_MENU_KEY_L1];
         if (($result[1] = $levels[ControllersManager::QUERY_STRING_MENU_KEY_L2]) === null) {
             $result[1] = $this->getDefaultSubMenuSlug('');
-        } elseif (!$this->slugExists($result[1], '')) {
+        } elseif ($checkSlugExists && !$this->slugExists($result[1], '')) {
             $result[1] = $this->getDefaultSubMenuSlug('');
         }
 
         if (($result[2] = $levels[ControllersManager::QUERY_STRING_MENU_KEY_L3]) === null) {
             $result[2] = $this->getDefaultSubMenuSlug($result[1]);
-        } elseif (!$this->slugExists($result[2], $result[1])) {
+        } elseif ($checkSlugExists && !$this->slugExists($result[2], $result[1])) {
             $result[2] = $this->getDefaultSubMenuSlug($result[1]);
         }
 

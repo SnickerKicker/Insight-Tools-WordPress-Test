@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -36,9 +36,17 @@ abstract class AbstractJsonSerializeObjData
         $reflect = new ReflectionObject($obj);
         if (!($flags & self::JSON_SERIALIZE_SKIP_CLASS_NAME)) {
             $result = array(self::CLASS_KEY_FOR_JSON_SERIALIZE => $reflect->name);
+        } else {
+            $result = array();
         }
 
-        if (method_exists($obj, '__sleep')) {
+        if (method_exists($obj, '__serialize')) {
+            $data = $obj->__serialize();
+            if (!is_array($data)) {
+                throw new Exception('__serialize function must return an array');
+            }
+            return array_merge($data, $result);
+        } elseif (method_exists($obj, '__sleep')) {
             $includeProps = $obj->__sleep();
             if (!is_array($includeProps)) {
                 throw new Exception('__sleep method must return an array');
@@ -53,7 +61,7 @@ abstract class AbstractJsonSerializeObjData
                 continue;
             }
             $propName = $prop->getName();
-            if ($includeProps !==  true && !in_array($propName, $includeProps)) {
+            if ($includeProps !== true && !in_array($propName, $includeProps)) {
                 continue;
             }
             $prop->setAccessible(true);
@@ -175,18 +183,22 @@ abstract class AbstractJsonSerializeObjData
                 $obj->{$arrayProp} = self::jsonDataToValue($arrayValue);
             }
         } else {
-            $reflect = new ReflectionObject($obj);
-            foreach ($reflect->getProperties() as $prop) {
-                $prop->setAccessible(true);
-                $propName = $prop->getName();
-                if (!isset($value[$propName]) || $prop->isStatic()) {
-                    continue;
+            if (method_exists($obj, '__unserialize')) {
+                $obj->__unserialize($value);
+            } else {
+                $reflect = new ReflectionObject($obj);
+                foreach ($reflect->getProperties() as $prop) {
+                    $prop->setAccessible(true);
+                    $propName = $prop->getName();
+                    if (!isset($value[$propName]) || $prop->isStatic()) {
+                        continue;
+                    }
+                    $prop->setValue($obj, self::jsonDataToValue($value[$propName]));
                 }
-                $prop->setValue($obj, self::jsonDataToValue($value[$propName]));
-            }
 
-            if (method_exists($obj, '__wakeup')) {
-                $obj->__wakeup();
+                if (method_exists($obj, '__wakeup')) {
+                    $obj->__wakeup();
+                }
             }
         }
         return $obj;

@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 namespace Duplicator\Ajax;
@@ -37,8 +37,13 @@ class AjaxWrapper
      *
      * @return void
      */
-    public static function json($callback, $nonceaction = null, $nonce = null, $capability = null, $errorUnespectedOutput = true)
-    {
+    public static function json(
+        $callback,
+        $nonceaction = null,
+        $nonce = null,
+        $capability = null,
+        $errorUnespectedOutput = true
+    ) {
         $error = false;
 
         $result = array(

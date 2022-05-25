@@ -1,6 +1,7 @@
 <?php
 defined("ABSPATH") or die("");
 
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
 use Duplicator\Libs\Snap\SnapJson;
 
 DUP_PRO_U::hasCapability('export');
@@ -16,22 +17,18 @@ $ui_css_storage = (isset($view_state['dup-package-dtl-storage-panel']) && $view_
 $ui_css_archive = (isset($view_state['dup-package-dtl-archive-panel']) && $view_state['dup-package-dtl-archive-panel']) ? 'display:block' : 'display:none';
 $ui_css_install = (isset($view_state['dup-package-dtl-install-panel']) && $view_state['dup-package-dtl-install-panel']) ? 'display:block' : 'display:none';
 
-$archiveDownloadInfo       = $package->getPackageFileDownloadInfo(DUP_PRO_Package_File_Type::Archive);
-$logDownloadInfo           = $package->getPackageFileDownloadInfo(DUP_PRO_Package_File_Type::Log);
-$scanDownloadInfo          = $package->getPackageFileDownloadInfo(DUP_PRO_Package_File_Type::Scan);
-$installerDownloadInfo     = $package->getInstallerDownloadInfo();
-$archiveDownloadInfoJson   = SnapJson::jsonEncodeEscAttr($archiveDownloadInfo);
-$logDownloadInfoJson       = SnapJson::jsonEncodeEscAttr($logDownloadInfo);
-$scanDownloadInfoJson      = SnapJson::jsonEncodeEscAttr($scanDownloadInfo);
-$installerDownloadInfoJson = SnapJson::jsonEncodeEscAttr($installerDownloadInfo);
-$showLinksDialogJson       = SnapJson::jsonEncodeEscAttr(array(
-        "archive" => $archiveDownloadInfo["url"],
-        "log"     => $logDownloadInfo["url"],
+$archiveDownloadURL   = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Archive);
+$logDownloadURL       = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Log);
+$installerDownloadURL = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Installer);
+$showLinksDialogJson  = SnapJson::jsonEncodeEscAttr(array(
+        "archive"   => $archiveDownloadURL,
+        "log"       => $logDownloadURL,
+        "installer" => $installerDownloadURL,
     ));
 
-$brand              = (isset($package->Brand) && !empty($package->Brand) && is_string($package->Brand) ? $package->Brand : 'unknown');
-$lang_notset        = DUP_PRO_U::__("- not set -");
-$archive_exists     = ($package->get_local_package_file(DUP_PRO_Package_File_Type::Archive, true) != null);
+$brand                  = (isset($package->Brand) && !empty($package->Brand) && is_string($package->Brand) ? $package->Brand : 'unknown');
+$lang_notset            = DUP_PRO_U::__("- not set -");
+$archive_exists         = ($package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive) !== false);
 ?>
 
 <style>
@@ -115,7 +112,7 @@ GENERAL -->
         </tr>
         <tr>
             <td><?php DUP_PRO_U::esc_html_e("Notes") ?>:</td>
-            <td><?php echo strlen($package->Notes) ? esc_html($package->Notes) : DUP_PRO_U::__("- no notes -") ?></td>
+            <td><?php echo strlen($package->notes) ? esc_html($package->notes) : DUP_PRO_U::__("- no notes -") ?></td>
         </tr>
         <tr>
             <td><?php DUP_PRO_U::esc_html_e("Created") ?>:</td>
@@ -182,10 +179,10 @@ GENERAL -->
             <?php if ($error_display == 'none') : ?>
                 <?php if ($package->contains_storage_type(DUP_PRO_Storage_Types::Local) && $archive_exists) : ?>
 
-                    <button class="button" onclick="DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>);return false;">
+                    <button class="button" onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($installerDownloadURL); ?>');return false;">
                         <i class="fa fa-bolt fa-sm"></i> Installer
                     </button>
-                    <button class="button" onclick="DupPro.Pack.DownloadFile(<?php echo $archiveDownloadInfoJson; ?>);return false;">
+                    <button class="button" onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($archiveDownloadURL); ?>');return false;">
                         <i class="far fa-file-archive fa-sm"></i> Archive - <?php echo $package->ZipSize ?>
                     </button>
                     <button class="button thickbox" onclick="DupPro.Pack.ShowLinksDialog(<?php echo $showLinksDialogJson; ?>);">
@@ -196,7 +193,7 @@ GENERAL -->
                         <tr>
                             <td><?php DUP_PRO_U::esc_html_e("Archive") ?>: </td>
                             <td>
-                                <a href="<?php echo $archiveDownloadInfo["url"]; ?>" target="file_results" download="<?php echo $package->Archive->File ?>">
+                                <a href="<?php echo esc_attr($archiveDownloadURL); ?>" target="file_results" download="<?php echo $package->Archive->File ?>">
                                     <?php echo $package->Archive->File ?>
                                 </a>
                             </td>
@@ -204,15 +201,12 @@ GENERAL -->
                         <tr>
                             <td><?php DUP_PRO_U::esc_html_e("Installer") ?>: </td>
                             <td>
-                                <a href="javascript:void(0)"
-                                   onclick="DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>);return false;">
-                                       <?php echo $package->Installer->File ?>
-                                </a>
+                                <a href="<?php echo $installerDownloadURL; ?>"><?php echo $package->Installer->File; ?></a>
                             </td>
                         </tr>
                         <tr>
                             <td><?php DUP_PRO_U::esc_html_e("Build Log") ?>: </td>
-                            <td><a href="<?php echo $logDownloadInfo["url"] ?>" target="file_results"><?php echo $logDownloadInfo["filename"]; ?></a></td>
+                            <td><a href="<?php echo esc_attr($logDownloadURL); ?>" target="file_results"><?php echo $package->get_log_filename(); ?></a></td>
                         </tr>
                         <tr>
                             <td class="sub-notes">
@@ -234,7 +228,7 @@ GENERAL -->
                     </button>
                     <div class="margin-top-1">
                         <b><?php DUP_PRO_U::esc_html_e("Build Log") ?>:</b>&nbsp;
-                        <a href="<?php echo $logDownloadInfo["url"] ?>" target="file_results"><?php echo $logDownloadInfo["filename"]; ?></a>
+                        <a href="<?php echo esc_attr($logDownloadURL); ?>" target="file_results"><?php echo $package->get_log_filename(); ?></a>
                     </div>
                 <?php endif; ?>
             <?php else : ?>
@@ -243,7 +237,7 @@ GENERAL -->
                     <?php _e("Package files were not created succesfully.  Please see the build log for more details.", 'duplicator-pro') ?>
                 </div><br/>
                 <b><?php DUP_PRO_U::esc_html_e("Build Log") ?>:</b>&nbsp;
-                <a href="<?php echo $logDownloadInfo["url"] ?>" target="file_results"><?php echo $logDownloadInfo["filename"]; ?></a>
+                <a href="<?php echo esc_attr($logDownloadURL); ?>" target="file_results"><?php echo $package->get_log_filename(); ?></a>
              <?php endif; ?>
             </div>
             </td>
@@ -550,7 +544,44 @@ ARCHIVE -->
                 <td><?php _e('Collations', 'duplicator-pro') ?>: </td>
                 <td><?php echo implode("<br/>", $package->Database->info->collationList);?></td>
             </tr>
-        </table>        
+        </table>
+        <br/>
+
+        <!-- SETUP -->
+        <div class="section-hdr">
+            <i class="fas fa-sliders-h"></i>
+            <?php DUP_PRO_U::esc_html_e('SETUP'); ?>
+        </div>
+        <table class='dup-dtl-data'>
+            <tr>
+                <td><?php DUP_PRO_U::esc_html_e("Security"); ?>:</td>
+                <td>
+                <?php 
+                    switch ($package->Installer->OptsSecureOn) {
+                        case ArchiveConfig::SECURE_MODE_NONE:
+                            esc_html_e('None', 'duplicator-pro');
+                            break;
+                        case ArchiveConfig::SECURE_MODE_INST_PWD:
+                            esc_html_e('Installer password', 'duplicator-pro');
+                            break;    
+                        case ArchiveConfig::SECURE_MODE_ARC_ENCRYPT:
+                            esc_html_e('Archive encryption', 'duplicator-pro');
+                            break;
+                        default:
+                            throw new Exception('Invalid secure mode');
+                    }
+                ?>
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td class="sub-notes">
+                    <?php
+                        _e('Lost passwords cannot be recovered. A new archive will need to be created.', 'duplicator-pro');
+                    ?>
+                </td>
+            </tr>
+        </table>
     </div>
 </div>
 
@@ -560,11 +591,15 @@ INSTALLER -->
 <div class="dup-box" style="margin-bottom: 50px">
     <div class="dup-box-title">
         <i class="fa fa-bolt fa-sm"></i> <?php DUP_PRO_U::esc_html_e('Installer') ?>
-        <?php if ($package->Installer->OptsSecureOn) : ?>
-            <span id="dpro-install-secure-lock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is on for this package.') ?>"><i class="fa fa-lock fa-sm"></i> </span>
-        <?php else : ?>
-            <span id="dpro-install-secure-unlock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is off for this package.') ?>"><i class="fa fa-unlock-alt"></i> </span>
-        <?php endif; ?>
+        <?php if ($package->Installer->isSecure()) { ?>
+            <span id="dpro-install-secure-lock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is on for this package.') ?>">
+                <i class="fa fa-lock fa-sm"></i>
+            </span>
+        <?php } else { ?>
+            <span id="dpro-install-secure-unlock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is off for this package.') ?>">
+                <i class="fa fa-unlock-alt"></i>
+            </span>
+        <?php } ?>
         <button class="dup-box-arrow">
             <span class="screen-reader-text"><?php DUP_PRO_U::esc_html_e('Toggle panel:') ?> <?php DUP_PRO_U::esc_html_e('Installer') ?></span>
         </button>
@@ -574,7 +609,7 @@ INSTALLER -->
 
         <table class='dup-dtl-data'>
             <tr>
-                <td colspan="2"><div class="dup-package-hdr-1"><?php DUP_PRO_U::esc_html_e("Setup") ?></div></td>
+                <td colspan="2"><div class="dup-package-hdr-1"><?php DUP_PRO_U::esc_html_e("SETUP") ?></div></td>
             </tr>
             <?php if ($display_brand === true && $is_freelancer_plus) : ?>
                 <tr>
@@ -583,24 +618,16 @@ INSTALLER -->
                 </tr>
             <?php endif; ?>
             <tr>
-                <td><?php DUP_PRO_U::esc_html_e("Security"); ?>:</td>
-                <td><?php echo $package->Installer->OptsSecureOn ? "On" : "Off" ?></td>
-            </tr>
-            <?php if ($package->Installer->OptsSecureOn) : ?>
-                <tr>
-                    <td colspan="2">
-                        <div id="dpro-pass-toggle">
-                            <input type="password" name="secure-pass" id="secure-pass" required="required" value="<?php echo DUP_PRO_U::installerDecrypt($package->Installer->OptsSecurePass) ?>" />
-                            <button type="button" id="secure-btn" class="pass-toggle" onclick="DupPro.togglePassword()" title="<?php DUP_PRO_U::esc_attr_e('Show/Hide Password') ?>"><i class="fas fa-eye fa-sm"></i></button>
-                        </div>
-                    </td>
-                </tr>
-            <?php endif; ?>
+                <td><?php esc_html_e("Security", 'duplicator-pro'); ?>:</td>
+                <td>
+                    <?php echo $package->Installer->isSecure() ? esc_html__("On", 'duplicator-pro') : esc_html__("Off", 'duplicator-pro'); ?>
+                </td>
+            </tr>          
         </table><br/><br/>
 
         <table style="width:100%">
             <tr>
-                <td colspan="2"><div class="dup-package-hdr-1"><?php DUP_PRO_U::esc_html_e("Prefills") ?></div></td>
+                <td colspan="2"><div class="dup-package-hdr-1"><?php DUP_PRO_U::esc_html_e("PREFILLS") ?></div></td>
             </tr>
         </table>
 
@@ -696,9 +723,10 @@ INSTALLER -->
             tb_show("<?php DUP_PRO_U::esc_html_e('Package File Links') ?>", url);
 
             var msg = <?php printf(
-                '"%s" + "\n\n%s:\n" + json.archive + "\n\n%s:\n" + json.log + "\n\n%s";',
+                '"%s" + "\n\n%s:\n" + json.archive + "\n\n%s:\n" + json.installer + "\n\n%s:\n" + json.log + "\n\n%s";',
                 '=========== SENSITIVE INFORMATION START ===========',
                 DUP_PRO_U::__("ARCHIVE"),
+                DUP_PRO_U::__("INSTALLER"),
                 DUP_PRO_U::__("LOG"),
                 '=========== SENSITIVE INFORMATION END ==========='
             );

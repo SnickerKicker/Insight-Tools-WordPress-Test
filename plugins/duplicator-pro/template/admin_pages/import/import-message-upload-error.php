@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 defined("ABSPATH") or die("");
@@ -26,7 +26,7 @@ defined("ABSPATH") or die("");
     <div><?php DUP_PRO_U::_e('Possible solutions:'); ?></div>
     <ul class="dup-pro-simple-style-list" >
         <li>
-            <?php _e('If you are using P2P transfer function make sure the URL is a valid URL', 'duplicator-pro'); ?>
+            <?php _e('If you are using Server to Server transfer function make sure the URL is a valid URL', 'duplicator-pro'); ?>
         </li>
         <li>
             <?php
@@ -45,4 +45,19 @@ defined("ABSPATH") or die("");
                 ?>
         </li>
     </ul>
+    <p>
+        <b>
+        <?php
+        printf(
+            _x(
+                'For more information see %1$s[this FAQ item]%2$s',
+                '%1$s and %2$s represents the opening and closing HTML tags for an anchor or link',
+                'duplicator-pro'
+            ),
+            '<a href="https://snapcreek.com/duplicator/docs/faqs-tech/#faq-installer-035-q" target="_blank">',
+            '</a>'
+        );
+        ?>
+        </b>
+    </p>
 </div>

@@ -12,6 +12,7 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Bootstrap;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\PrmMng;
@@ -141,7 +142,7 @@ class DUPX_CTRL
 
         if (
             $ctrlAction !== 'help' &&
-            DUPX_Security::getInstance()->getSecurityType() != DUPX_Security::SECURITY_NONE
+            Security::getInstance()->getSecurityType() != Security::SECURITY_NONE
         ) {
             Log::info('SECURE CHECK -> GO TO SECURE PAGE');
             $this->pageView = 'secure';

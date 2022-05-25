@@ -12,6 +12,7 @@
 
 namespace Duplicator\Installer\Core\Params\Descriptors;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Installer\Core\Params\Items\ParamItem;
 use Duplicator\Installer\Core\Params\Items\ParamForm;
@@ -134,8 +135,8 @@ final class ParamDescController implements DescriptorInterface
             ))
         );
 
-        $params[\DUPX_Security::CTRL_TOKEN] = new ParamItem(
-            \DUPX_Security::CTRL_TOKEN,
+        $params[Security::CTRL_TOKEN] = new ParamItem(
+            Security::CTRL_TOKEN,
             ParamForm::TYPE_STRING,
             ParamForm::FORM_TYPE_HIDDEN,
             array(

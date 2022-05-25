@@ -27,15 +27,12 @@ class DUP_PRO_DATE
 
     public static function getLocalTicksFromGMT($timestamp)
     {
-        $ticks = strtotime($timestamp);
-        $ticks += ((int) get_option('gmt_offset') * 3600);
-        return $ticks;
+        return strtotime($timestamp) + \Duplicator\Libs\Snap\SnapWP::getGMTOffset();
     }
 
     public static function getLocalTimeFromGMTTicks($ticks)
     {
-        $ticks += ((int) get_option('gmt_offset') * 3600);
-        return self::getStandardTime($ticks);
+        return self::getStandardTime($ticks + \Duplicator\Libs\Snap\SnapWP::getGMTOffset());
     }
 
     public static function getStandardTime($ticks)

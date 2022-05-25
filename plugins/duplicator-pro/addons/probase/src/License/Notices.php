@@ -7,7 +7,7 @@
  * @link http://www.php-fig.org/psr/psr-2
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -262,7 +262,7 @@ class Notices
             ),
             array(
                 'data-to-dismiss' => self::OPTION_KEY_EXPIRED_LICENCE_NOTICE_DISMISS_TIME,
-                'title' => sprintf(_x('Dismiss notice for %s days', 'duplicator-pro'), self::EXPIRED_LICENCE_NOTICE_DISMISS_FOR_DAYS)
+                'title' => sprintf(__('Dismiss notice for %s days', 'duplicator-pro'), self::EXPIRED_LICENCE_NOTICE_DISMISS_FOR_DAYS)
             )
         );
     }

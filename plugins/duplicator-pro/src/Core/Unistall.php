@@ -4,7 +4,7 @@
  * Interface that collects the functions of initial duplicator Bootstrap
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -53,6 +53,9 @@ class Unistall
             $activeSchedule->next_run_time = -1;
             $activeSchedule->save();
         }
+
+        // Unschedule custom cron event for cleanup if it's scheduled
+        \Duplicator\Libs\Snap\SnapWP::unscheduleEvent(\DUP_PRO_Global_Entity::CLEANUP_HOOK);
     }
 
     /**

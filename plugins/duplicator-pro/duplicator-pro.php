@@ -4,10 +4,10 @@
  * Plugin Name: Duplicator Pro
  * Plugin URI: http://snapcreek.com/
  * Description: Create, schedule and transfer a copy of your WordPress files and database. Duplicate and move a site from one location to another quickly.
- * Version: 4.5.2
+ * Version: 4.5.3
  * Requires at least: 4.0
  * Tested up to: 5.9
- * Requires PHP: 5.3.8
+ * Requires PHP: 5.6.20
  * Author: Snap Creek
  * Author URI: http://snapcreek.com
  * Network: true
@@ -15,7 +15,7 @@
  * Text Domain: duplicator-pro
  * License: GPLv2 or later
  *
- * Copyright 2011-2021  Snapcreek LLC
+ * Copyright 2011-2022  Snapcreek LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
@@ -34,8 +34,8 @@
 defined('ABSPATH') || exit;
 
 // CHECK PHP VERSION
-define('DUPLICATOR_PRO_PHP_MINIMUM_VERSION', '5.3.8');
-define('DUPLICATOR_PRO_PHP_SUGGESTED_VERSION', '5.6.20');
+define('DUPLICATOR_PRO_PHP_MINIMUM_VERSION', '5.6.20');
+define('DUPLICATOR_PRO_PHP_SUGGESTED_VERSION', '7.4');
 require_once dirname(__FILE__) . "/tools/DuplicatorPhpVersionCheck.php";
 if (DuplicatorPhpVersionCheck::check(DUPLICATOR_PRO_PHP_MINIMUM_VERSION, DUPLICATOR_PRO_PHP_SUGGESTED_VERSION) === false) {
     return;

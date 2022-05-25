@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -56,6 +56,9 @@ if (isset($_POST['action']) && $_POST['action'] == 'save') {
             break;
     }
 
+// CLEANUP
+    $global->setCleanupFields();
+
     $action_updated = $global->save();
     $sglobal->save();
     $global->adjust_settings_for_system();
@@ -66,7 +69,6 @@ $mysqlDumpFound    = ($mysqlDumpPath) ? true : false;
 $installerNameMode = $global->installer_name_mode;
 class DUP_PRO_UI_Settings_General_Basic
 {
-
     public static function getShellZipMessage($hasShellZip = false)
     {
         if ($hasShellZip) {
@@ -182,7 +184,7 @@ class DUP_PRO_UI_Settings_General_Basic
 endif; ?>
 
 
-<form id="dup-settings-form" action="<?php echo ControllersManager::getCurrentLink(); ?>" method="post" data-parsley-validate>
+<form id="dup-settings-form" class="dup-settings-pack-basic" action="<?php echo ControllersManager::getCurrentLink(); ?>" method="post" data-parsley-validate>
     <?php wp_nonce_field(Duplicator\Controllers\SettingsPageController::NONCE_ACTION); ?>
     <input type="hidden" name="action" value="save">
 
@@ -197,7 +199,7 @@ endif; ?>
 
                 <div class="engine-radio <?php echo ($is_shellexec_on) ? '' : 'engine-radio-disabled'; ?>">
                     <input type="radio" name="_package_dbmode" value="mysql" id="package_mysqldump" <?php echo DUP_PRO_UI::echoChecked($global->package_mysqldump); ?>  onclick="DupPro.UI.SetDBEngineMode();" />
-                    <label for="package_mysqldump"><?php DUP_PRO_U::esc_html_e("Mysqldump"); ?> <!--small><?php DUP_PRO_U::esc_html_e("(recommended)"); ?></small--></label> &nbsp; &nbsp; &nbsp;
+                    <label for="package_mysqldump"><?php DUP_PRO_U::esc_html_e("Mysqldump"); ?> </label> &nbsp; &nbsp; &nbsp;
                 </div>
 
                 <div class="engine-radio">
@@ -242,7 +244,7 @@ endif; ?>
 
                 <!-- PHP OPTION -->
                 <div class="engine-sub-opts" id="dbengine-details-2" style="display:none; line-height: 35px; margin-top:-5px">
-                    <label><?php DUP_PRO_U::esc_html_e("Mode"); ?>:</label>
+                    <label><?php DUP_PRO_U::esc_html_e("Process Mode"); ?></label>
                     <select name="_phpdump_mode">
                         <option <?php echo DUP_PRO_UI::echoSelected($global->package_phpdump_mode == DUP_PRO_PHPDump_Mode::Multithreaded); ?> value="<?php echo DUP_PRO_PHPDump_Mode::Multithreaded ?>">
                             <?php DUP_PRO_U::esc_html_e("Multi-Threaded"); ?>
@@ -349,22 +351,22 @@ endif; ?>
                     echo '<br/>  ';
                     DUP_PRO_U::esc_html_e('This option is fully multi-threaded and recommended for large sites or throttled servers.');
                     echo '<br/>  ';
-                    printf('%s <a href="https://snapcreek.com/duplicator/docs/faqs-tech/#faq-trouble-052-q" target="_blank">%s</a> ',
+                    printf(
+                        '%s <a href="https://snapcreek.com/duplicator/docs/faqs-tech/#faq-trouble-052-q" target="_blank">%s</a> ',
                         DUP_PRO_U::__('For details on how to use and manually extract the DAF format please see the '),
-                        DUP_PRO_U::__('online documentation.'));
+                        DUP_PRO_U::__('online documentation.')
+                    );
                     ?>
                 </div>
 
                 <!-- SHELL EXEC  -->
                 <div class="engine-sub-opts" id="engine-details-1" style="display:none">
-                   
-                        <?php DUP_PRO_UI_Settings_General_Basic::getShellZipMessage($isShellZipAvailable); ?>
-                  
+                    <?php DUP_PRO_UI_Settings_General_Basic::getShellZipMessage($isShellZipAvailable); ?>
                 </div>
 
                 <!-- ZIP ARCHIVE -->
                 <div class="engine-sub-opts" id="engine-details-2" style="display:none;">
-                    <label>Mode:</label>
+                    <label><?php DUP_PRO_U::esc_html_e("Process Mode"); ?></label>
                     <select  name="ziparchive_mode" id="ziparchive_mode"  onchange="DupPro.UI.setZipArchiveMode();">
                         <option <?php echo DUP_PRO_UI::echoSelected($global->ziparchive_mode == DUP_PRO_ZipArchive_Mode::Multithreaded); ?> value="<?php echo DUP_PRO_ZipArchive_Mode::Multithreaded ?>">
                             <?php DUP_PRO_U::esc_html_e("Multi-Threaded"); ?>
@@ -401,7 +403,39 @@ endif; ?>
         </tr>
     </table>
 
-    <h3 id="duplicator-pro-installer-settings" class="title"><?php DUP_PRO_U::esc_html_e("Installer settings"); ?></h3>
+    <!-- ===============================
+    PROCESSING -->
+    <h3 class="title"><?php DUP_PRO_U::esc_html_e("Processing") ?> </h3>
+    <hr size="1" />
+    <table class="form-table">
+        <tr>
+            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Server Throttle"); ?></label></th>
+            <td>
+                <input type="radio" name="server_load_reduction" value="<?php echo DUP_PRO_Email_Build_Mode::No_Emails; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::None); ?> />
+                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Off"); ?></label> &nbsp;
+                <input type="radio" name="server_load_reduction" value="<?php echo DUP_PRO_Server_Load_Reduction::A_Bit; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::A_Bit); ?> />
+                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Low"); ?></label> &nbsp;
+                <input type="radio" name="server_load_reduction"  value="<?php echo DUP_PRO_Server_Load_Reduction::More; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::More); ?> />
+                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Medium"); ?></label> &nbsp;
+                <input type="radio" name="server_load_reduction"  value="<?php echo DUP_PRO_Server_Load_Reduction::A_Lot ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::A_Lot); ?> />
+                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("High"); ?></label> &nbsp;
+                <p class="description"><?php DUP_PRO_U::esc_html_e("Throttle to prevent resource complaints on budget hosts. The higher the value the slower the backup."); ?></p>
+            </td>
+        </tr>
+        <tr valign="top">
+            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Max Build Time"); ?></label></th>
+            <td>
+                <input style="float:left;display:block;margin-right:6px;" data-parsley-required data-parsley-errors-container="#max_package_runtime_in_min_error_container" data-parsley-min="0" data-parsley-type="number" class="narrow-input" type="text" name="max_package_runtime_in_min" id="max_package_runtime_in_min" value="<?php echo $global->max_package_runtime_in_min; ?>" />
+                <p style="margin-left:4px;"><?php DUP_PRO_U::esc_html_e('Minutes'); ?></p>
+                <div id="max_package_runtime_in_min_error_container" class="duplicator-error-container"></div>
+                <p class="description">  <?php DUP_PRO_U::esc_html_e('Max build and storage time until package is auto-cancelled. Set to 0 for no limit.'); ?>  </p>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ===============================
+    INSTALLER SETTINGS -->
+    <h3 id="duplicator-pro-installer-settings" class="title"><?php DUP_PRO_U::esc_html_e("Installer Settings"); ?></h3>
     <hr size="1" />
     <table class="form-table">
         <tr>
@@ -457,32 +491,75 @@ endif; ?>
         </tr>
     </table>
 
+
+
     <!-- ===============================
-    PROCESSING -->
-    <h3 class="title"><?php DUP_PRO_U::esc_html_e("Processing") ?> </h3>
+    Installer Cleanup -->
+    <h3 class="title"><?php DUP_PRO_U::esc_html_e("Installer Cleanup") ?> </h3>
     <hr size="1" />
     <table class="form-table">
         <tr>
-            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Server Throttle"); ?></label></th>
+            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Mode"); ?></label></th>
             <td>
-                <input type="radio" name="server_load_reduction" value="<?php echo DUP_PRO_Email_Build_Mode::No_Emails; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::None); ?> />
-                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Off"); ?></label> &nbsp;
-                <input type="radio" name="server_load_reduction" value="<?php echo DUP_PRO_Server_Load_Reduction::A_Bit; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::A_Bit); ?> />
-                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Low"); ?></label> &nbsp;
-                <input type="radio" name="server_load_reduction"  value="<?php echo DUP_PRO_Server_Load_Reduction::More; ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::More); ?> />
-                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("Medium"); ?></label> &nbsp;
-                <input type="radio" name="server_load_reduction"  value="<?php echo DUP_PRO_Server_Load_Reduction::A_Lot ?>" <?php echo DUP_PRO_UI::echoChecked($global->server_load_reduction == DUP_PRO_Server_Load_Reduction::A_Lot); ?> />
-                <label for="server_load_reduction"><?php DUP_PRO_U::esc_html_e("High"); ?></label> &nbsp;
-                <p class="description"><?php DUP_PRO_U::esc_html_e("Throttle to prevent resource complaints on budget hosts. The higher the value the slower the backup."); ?></p>
+                <input 
+                    type="radio" 
+                    name="cleanup_mode" 
+                    id="cleanup_mode_Cleanup_Off" 
+                    value="<?php echo DUP_PRO_Global_Entity::CLEANUP_MODE_OFF; ?>" 
+                    <?php checked($global->cleanup_mode, DUP_PRO_Global_Entity::CLEANUP_MODE_OFF); ?> 
+                >
+                <label for="cleanup_mode_Cleanup_Off"><?php DUP_PRO_U::esc_html_e("Off"); ?></label> &nbsp;
+                <input 
+                    type="radio" 
+                    name="cleanup_mode" 
+                    id="cleanup_mode_Email_Notice" 
+                    value="<?php echo DUP_PRO_Global_Entity::CLEANUP_MODE_MAIL; ?>" 
+                    <?php checked($global->cleanup_mode, DUP_PRO_Global_Entity::CLEANUP_MODE_MAIL); ?> 
+                >
+                <label for="cleanup_mode_Email_Notice"><?php DUP_PRO_U::esc_html_e("Email Notice"); ?></label> &nbsp;
+                <input 
+                    type="radio" 
+                    name="cleanup_mode" 
+                    id="cleanup_mode_Auto_Cleanup" 
+                    value="<?php echo DUP_PRO_Global_Entity::CLEANUP_MODE_AUTO; ?>" 
+                    <?php checked($global->cleanup_mode, DUP_PRO_Global_Entity::CLEANUP_MODE_AUTO); ?>
+                >
+                <label for="cleanup_mode_Auto_Cleanup"><?php DUP_PRO_U::esc_html_e("Auto Cleanup"); ?></label> &nbsp;
+                <p class="description"><?php DUP_PRO_U::esc_html_e("Email Notice: An email will be sent daily until the installer files are removed."); ?></p>
+                <p class="description"><?php DUP_PRO_U::esc_html_e("Auto Cleanup: Installer files will be cleaned up automatically based on setting below."); ?></p>
             </td>
         </tr>
         <tr valign="top">
-            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Max Build Time"); ?></label></th>
+            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Auto Cleanup"); ?></label></th>
             <td>
-                <input style="float:left;display:block;margin-right:6px;" data-parsley-required data-parsley-errors-container="#max_package_runtime_in_min_error_container" data-parsley-min="0" data-parsley-type="number" class="narrow-input" type="text" name="max_package_runtime_in_min" id="max_package_runtime_in_min" value="<?php echo $global->max_package_runtime_in_min; ?>" />
-                <p style="margin-left:4px;"><?php DUP_PRO_U::esc_html_e('Minutes'); ?></p>
-                <div id="max_package_runtime_in_min_error_container" class="duplicator-error-container"></div>
-                <p class="description">  <?php DUP_PRO_U::esc_html_e('Max build and storage time until package is auto-cancelled. Set to 0 for no limit.'); ?>  </p>
+                <input 
+                    data-parsley-required
+                    data-parsley-errors-container="#auto_cleanup_hours_error_container"
+                    data-parsley-min="1"
+                    data-parsley-type="number"
+                    class="narrow-input"
+                    type="text" 
+                    name="auto_cleanup_hours" id="auto_cleanup_hours"
+                    value="<?php echo $global->auto_cleanup_hours; ?>"
+                    size="7"/>
+                <?php DUP_PRO_U::esc_html_e('Hours'); ?>
+                <div id="auto_cleanup_hours_error_container" class="duplicator-error-container"></div>
+                <p class="description">  <?php DUP_PRO_U::esc_html_e('Auto cleanup will run every N hours based on value above.'); ?>  </p>
+            </td>
+        </tr>
+        <tr valign="top">
+            <th scope="row"><label><?php DUP_PRO_U::esc_html_e("Email Address"); ?></label></th>
+            <td>
+                <input
+                    data-parsley-errors-container="#cleanup_email_error_container"
+                    data-parsley-type="email"
+                    type="email"
+                    name="cleanup_email" 
+                    id="cleanup_email"
+                    value="<?php echo esc_attr($global->cleanup_email); ?>"
+                    size="75" />
+                <p class="description"><?php DUP_PRO_U::esc_html_e('WordPress administration email address will be used if empty.'); ?></p>
+                <div id="cleanup_email_error_container" class="duplicator-error-container"></div>
             </td>
         </tr>
     </table>
@@ -559,11 +636,28 @@ endif; ?>
             DupPro.UI.setZipArchiveMode();
         }
 
-
-
         //INIT
         DupPro.UI.SetArchiveOptionStates();
         DupPro.UI.SetDBEngineMode();
+
+        DupPro.UI.cleanupModeRadioSwitched = function() {
+            if ($('#cleanup_mode_Cleanup_Off').is(":checked")){
+                $('#auto_cleanup_hours').attr('readonly','readonly');
+                $('#cleanup_email').attr('readonly','readonly');
+            } else if ($('#cleanup_mode_Email_Notice').is(":checked")) {
+                $('#auto_cleanup_hours').attr('readonly','readonly');
+                $("#cleanup_email").removeAttr('readonly');
+            } else if ($('#cleanup_mode_Auto_Cleanup').is(":checked")) {
+                $("#auto_cleanup_hours").removeAttr('readonly');
+                $("#cleanup_email").removeAttr('readonly');
+            }
+        }
+        
+        $('input[type=radio][name=cleanup_mode]').change(function () {
+            DupPro.UI.cleanupModeRadioSwitched();
+        });
+        // We must call this also once in the beginning, after UI is loaded
+        DupPro.UI.cleanupModeRadioSwitched();
 
     });
 </script>

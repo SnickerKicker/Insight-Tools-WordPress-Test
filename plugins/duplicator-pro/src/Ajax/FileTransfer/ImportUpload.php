@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 namespace Duplicator\Ajax\FileTransfer;
@@ -23,8 +23,9 @@ class ImportUpload
 {
     const P2P_TIMEOUT = 5; // seconds, can be a float number
 
-    const MODE_UPLOAD_LOCAL    = 'upload';
-    const MODE_DOWNLOAD_REMOTE = 'remote';
+    const MODE_UPLOAD_LOCAL    = 'upload'; // Upload archive from local PC
+    const MODE_DOWNLOAD_REMOTE = 'remote'; // Download archive from remote URL
+    const MODE_UPLOADED        = 'uploaded'; // Archive is already uploaded
 
     const STATUS_CHUNKING = 'chunking';
     const STATUS_COMPLETE = 'complete';
@@ -53,18 +54,25 @@ class ImportUpload
     /**
      * Class constructor
      *
-     * @param string $mode upload mode
+     * @param string $mode        upload mode
+     * @param string $archivePath archive path, use in mode uploaded
      */
-    public function __construct($mode)
+    public function __construct($mode, $archivePath = '')
     {
         switch ($mode) {
             case self::MODE_UPLOAD_LOCAL:
             case self::MODE_DOWNLOAD_REMOTE:
-                $this->mode = $mode;
+                break;
+            case self::MODE_UPLOADED:
+                if (strlen($archivePath) == 0 || !is_file($archivePath)) {
+                    throw new Exception('Invalid archive');
+                }
+                $this->archivePath = $archivePath;
                 break;
             default:
                 throw new Exception('Invalid transfer mode');
         }
+        $this->mode = $mode;
     }
 
     /**
@@ -84,6 +92,9 @@ class ImportUpload
                 break;
             case self::MODE_DOWNLOAD_REMOTE:
                 $this->remoteDownload();
+                break;
+            case self::MODE_UPLOADED:
+                $this->setCompleteData();
                 break;
         }
 
@@ -262,7 +273,7 @@ class ImportUpload
             $this->isImportable      = $importObj->isImportable();
             $this->installerPageLink = $importObj->getInstallerPageLink();
             $this->htmlDetails       = $importObj->getHtmlDetails(false);
-            $this->created           =  $importObj->getCreated();
+            $this->created           = $importObj->getCreated();
             if (($this->archiveSize = filesize($this->archivePath)) === false) {
                 $this->archiveSize = -1;
             }

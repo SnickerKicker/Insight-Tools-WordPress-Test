@@ -63,6 +63,15 @@ class DUP_PRO_JSON_Entity_Base
     }
 
     /**
+     * Return serialized data to store in database
+     *
+     * @return array
+     */
+    protected function getSerializedData() {
+        return DUP_PRO_Low_U::getPublicProperties($this);
+    }
+
+    /**
      * Insert entity
      *
      * @return bool
@@ -71,13 +80,12 @@ class DUP_PRO_JSON_Entity_Base
     {
         global $wpdb;
 
-        //      DUP_PRO_LOG::trace("inserting type $this->type");
+        // DUP_PRO_LOG::trace("inserting type $this->type");
 
         $query_string = "INSERT INTO " . $this->table_name;
         $query_string .= " (type, data) VALUES (%s, %s)";
 
-        $data            = DUP_PRO_Low_U::getPublicProperties($this);
-        $serialized_data = SnapJson::jsonEncodePPrint($data);
+        $serialized_data = SnapJson::jsonEncodePPrint($this->getSerializedData());
 
         $prepared_query = $wpdb->prepare($query_string, $this->type, $serialized_data);
         $wpdb->query($prepared_query);
@@ -107,8 +115,7 @@ class DUP_PRO_JSON_Entity_Base
         $query_string = "UPDATE " . $this->table_name;
         $query_string .= " SET type = %s, data = %s WHERE id = %d";
 
-        $data            = DUP_PRO_Low_U::getPublicProperties($this);
-        $serialized_data = SnapJson::jsonEncodePPrint($data);
+        $serialized_data = SnapJson::jsonEncodePPrint($this->getSerializedData());
 
         $prepared_query = $wpdb->prepare($query_string, $this->type, $serialized_data, $this->id);
         $updated        = ($wpdb->query($prepared_query) !== false);
@@ -151,24 +158,9 @@ class DUP_PRO_JSON_Entity_Base
         $row = $wpdb->get_row($prepped);
 
         if ($row != null) {
-            $instance = new $type();
-
-            $instance->id         = (int) $row->id;
-            $instance->type       = $row->type;
-            $instance->table_name = $table_name;
-
-            $data = json_decode($row->data);
-
-            foreach ($data as $property_name => $property_value) {
-                // The if fixes the bug introduced in 3.0.13
-                if (($property_name != 'verifiers') && ($property_name != 'table_name') && ($property_name != 'dirty')) {
-                    $instance->$property_name = $property_value;
-                }
-            }
-
-            return $instance;
+            return static::getInstanceByRow($row, $type, $table_name);
         } else {
-       //     DUP_PRO_Low_U::errLog("get_by_id_and_type: row $prepped is null".print_r(debug_backtrace(), true));
+            // DUP_PRO_Low_U::errLog("get_by_id_and_type: row $prepped is null".print_r(debug_backtrace(), true));
             // Storage ids can disappear
             return null;
         }
@@ -228,9 +220,43 @@ class DUP_PRO_JSON_Entity_Base
         return $count;
     }
 
+    /**
+     * Get all entities from type
+     *
+     * @param stdClass $row        database row data
+     * @param string   $class      class name
+     * @param string   $table_name table name
+     * 
+     * @return object
+     */
+    protected static function getInstanceByRow($row, $class, $table_name) {
+        $instance             = new $class();
+        $instance->id         = $row->id;
+        $instance->type       = $row->type;
+        $instance->table_name = $table_name;
+
+        $data = json_decode($row->data);
+
+        foreach ($data as $property_name => $property_value) {
+            // The if fixes the bug introduced in 3.0.13
+            if (($property_name != 'verifiers') && ($property_name != 'table_name') && ($property_name != 'dirty')) {
+                $instance->$property_name = $property_value;
+            }
+        }
+        return $instance;
+    }
+
+    /**
+     * Get all entities from type
+     *
+     * @param string $type
+     * @param string $table_name
+     * @param int    $page
+     * 
+     * @return object[]
+     */
     public static function get_by_type($type, $table_name = self::DEFAULT_TABLE_NAME, $page = 0)
     {
-
         global $wpdb;
 
         $table_name = $wpdb->base_prefix . $table_name;
@@ -240,9 +266,7 @@ class DUP_PRO_JSON_Entity_Base
 
         if ($page > 0) {
             $records_per_page = 50;
-
             $offset = ($page - 1) * $records_per_page;
-
             $query_string .= " LIMIT $offset, $records_per_page";
         }
 
@@ -252,20 +276,7 @@ class DUP_PRO_JSON_Entity_Base
 
         $instances = array();
         foreach ($rows as $row) {
-            $instance             = new $type();
-            $instance->id         = $row->id;
-            $instance->type       = $row->type;
-            $instance->table_name = $table_name;
-
-            $data = json_decode($row->data);
-
-            foreach ($data as $property_name => $property_value) {
-                // The if fixes the bug introduced in 3.0.13
-                if (($property_name != 'verifiers') && ($property_name != 'table_name') && ($property_name != 'dirty')) {
-                    $instance->$property_name = $property_value;
-                }
-            }
-            array_push($instances, $instance);
+            $instances[] = static::getInstanceByRow($row, $type, $table_name);
         }
 
         return $instances;

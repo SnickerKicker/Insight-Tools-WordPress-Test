@@ -15,7 +15,6 @@
  */
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
-require_once(DUPLICATOR____PATH . '/classes/entities/class.json.entity.base.php');
 abstract class DUP_PRO_Recommended_Fix_Type
 {
     const Text = 0;

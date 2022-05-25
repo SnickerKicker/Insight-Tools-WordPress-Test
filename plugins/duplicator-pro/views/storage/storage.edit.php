@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -13,24 +13,14 @@ use Duplicator\Libs\Snap\SnapIO;
 
 DUP_PRO_U::hasCapability('export');
 
-if (DUP_PRO_StorageSupported::isGDriveSupported()) {
-    require_once(DUPLICATOR____PATH . '/classes/net/class.u.gdrive.php');
-}
-
-if (DUP_PRO_StorageSupported::isOneDriveSupported()) {
-    require_once(DUPLICATOR____PATH . '/classes/net/class.u.onedrive.php');
-}
-
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-require_once(DUPLICATOR____PATH . '/lib/DropPHP/DropboxV2Client.php');
-
 global $wp_version;
 global $wpdb;
 
-$global = DUP_PRO_Global_Entity::get_instance();
+$global       = DUP_PRO_Global_Entity::get_instance();
 $nonce_action = 'duppro-storage-edit';
-$storage_id = isset($_REQUEST['storage_id']) ? intval($_REQUEST['storage_id']) : -1;
-$storage = ($storage_id == -1) ? new DUP_PRO_Storage_Entity() : DUP_PRO_Storage_Entity::get_by_id($storage_id);
+$storage_id   = isset($_REQUEST['storage_id']) ? intval($_REQUEST['storage_id']) : -1;
+$storage      = ($storage_id == -1) ? new DUP_PRO_Storage_Entity() : DUP_PRO_Storage_Entity::get_by_id($storage_id);
+$needsReset   = ($storage_id != -1 && $storage->storage_type != $_REQUEST['storage_type']) ? true : false;
 
 $_REQUEST['_sftp_storage_folder'] = isset($_REQUEST['_sftp_storage_folder']) ? sanitize_text_field($_REQUEST['_sftp_storage_folder']) : '';
 $_REQUEST['duppro-source-storage-id'] = isset($_REQUEST['duppro-source-storage-id']) ? $_REQUEST['duppro-source-storage-id'] : -1;
@@ -44,6 +34,10 @@ if (isset($_REQUEST['action'])) {
     DUP_PRO_U::verifyNonce($wpnonce_val, $nonce_action);
 
     if ($_REQUEST['action'] == 'save') {
+        if ($needsReset) {
+            $storage     = new DUP_PRO_Storage_Entity();
+            $storage->id = $storage_id;
+        }
         if ($_REQUEST['storage_type'] == DUP_PRO_Storage_Types::GDrive) {
             if ($storage->gdrive_authorization_state == DUP_PRO_GDrive_Authorization_States::Unauthorized) {
                 if (!empty($_REQUEST['gdrive-auth-code'])) {
@@ -346,7 +340,6 @@ $txt_auth_note = DUP_PRO_U::__('Note: Clicking the button below will open a new 
     #s3_max_files, #dropbox_max_files, #ftp_max_files, #local_max_files, #gdrive_max_files, #onedrive_msgraph_max_files {width:50px !important}
     table.dup-form-sub-area td {padding:2px}
     table.dup-form-sub-area th {width:150px; border:0 solid red; padding:10px}
-    table.dup-form-sub-area td:nth-child(2) {}
     img.dup-store-auth-icon {vertical-align: bottom; margin:0 2px 0 0}
 
     /* ---------------
@@ -515,7 +508,7 @@ if (!is_null($error_message)) {
                         <option <?php DUP_PRO_UI::echoSelected($storage->storage_type == DUP_PRO_Storage_Types::FTP); ?> value="<?php echo esc_attr(DUP_PRO_Storage_Types::FTP); ?>"><?php DUP_PRO_U::esc_html_e("FTP"); ?></option>
                         <?php
                     }
-                    if (DUP_PRO_U::PHP55() && extension_loaded('gmp')) : ?>
+                    if (extension_loaded('gmp')) : ?>
                         <option <?php DUP_PRO_UI::echoSelected($storage->storage_type == DUP_PRO_Storage_Types::SFTP); ?> value="<?php echo esc_attr(DUP_PRO_Storage_Types::SFTP); ?>"><?php DUP_PRO_U::esc_html_e("SFTP"); ?></option>
                     <?php endif; ?>
                     <?php if (DUP_PRO_StorageSupported::isGDriveSupported()) :?>
@@ -557,9 +550,7 @@ if (!is_null($error_message)) {
                         printf(DUP_PRO_U::esc_html__('FTP requires FTP module enabled. Please install the FTP module as described in the %s.'), '<a href="https://secure.php.net/manual/en/ftp.installation.php" target="_blank">https://secure.php.net/manual/en/ftp.installation.php</a>');
                         echo '<br/>';
                     }
-                    if (DUP_PRO_U::PHP55() == false) {
-                        echo sprintf(DUP_PRO_U::esc_html__('SFTP requires PHP 5.5.2+. This server is running PHP (%s).'), PHP_VERSION) . '<br/>';
-                    }
+
                     if (!extension_loaded('gmp')) {
                         echo wp_kses(
                             DUP_PRO_U::__('SFTP requires the <a href="http://php.net/manual/en/book.gmp.php" target="_blank">gmp extension</a>. Please contact your host to install.'),
@@ -608,7 +599,7 @@ if (!is_null($error_message)) {
                   <tr>
                       <th scope="row"><label for="s3_access_key"><?php DUP_PRO_U::esc_html_e("Access Key"); ?>:</label></th>
                       <td>
-                          <input id="s3_access_key" name="s3_access_key" data-parsley-errors-container="#s3_access_key_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->s3_access_key); ?>">
+                          <input id="s3_access_key" class="dup-empty-field-on-submit" name="s3_access_key" data-parsley-errors-container="#s3_access_key_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->s3_access_key); ?>">
                           <div id="s3_access_key_error_container" class="duplicator-error-container"></div>
                       </td>
                   </tr>
@@ -618,7 +609,7 @@ if (!is_null($error_message)) {
                       </th>
 
                       <td>
-                          <input id="s3_secret_key" name="s3_secret_key" data-parsley-errors-container="#s3_secret_key_error_container" type="password" autocomplete="off" value="<?php echo esc_attr($storage->s3_secret_key); ?>">
+                          <input id="s3_secret_key" class="dup-empty-field-on-submit" name="s3_secret_key" data-parsley-errors-container="#s3_secret_key_error_container" type="password" autocomplete="off" value="<?php echo esc_attr($storage->s3_secret_key); ?>">
                           <div id="s3_secret_key_error_container" class="duplicator-error-container"></div>
                       </td>
                   </tr>
@@ -675,14 +666,14 @@ if (!is_null($error_message)) {
                     <tr class="s3_other_tr">
                         <th><label for="s3_region"><?php DUP_PRO_U::esc_html_e("Region"); ?>:</label></th>
                         <td>
-                            <input type="text" name="s3_region" value="<?php echo ('other' == $storage->s3_provider) ? esc_attr($storage->s3_region) : ''; ?>">
+                            <input type="text" name="s3_region" class="dup-empty-field-on-submit" value="<?php echo ('other' == $storage->s3_provider) ? esc_attr($storage->s3_region) : ''; ?>">
                             <p><i><?php DUP_PRO_U::esc_html_e("Please fill s3 bucket region slug. Space is not allowed."); ?></i></p>
                         </td>
                     </tr>
                     <tr class="s3_other_tr">
                         <th><label for="s3_endpoint"><?php DUP_PRO_U::esc_html_e("Endpoint URL"); ?>:</label></th>
                         <td>
-                            <input type="text" id="s3_endpoint"  name="s3_endpoint" value="<?php echo esc_attr($storage->s3_endpoint); ?>">
+                            <input type="text" id="s3_endpoint" class="dup-empty-field-on-submit" name="s3_endpoint" value="<?php echo esc_attr($storage->s3_endpoint); ?>">
                         </td>
                     </tr>
                     <tr class="s3_amazon_tr">
@@ -709,7 +700,7 @@ if (!is_null($error_message)) {
         <tr>
             <th scope="row"><label for="s3_bucket"><?php DUP_PRO_U::esc_html_e("Bucket"); ?></label></th>
             <td>
-                <input id="s3_bucket" name="s3_bucket" type="text" value="<?php echo esc_attr($storage->s3_bucket); ?>">
+                <input id="s3_bucket" class="dup-empty-field-on-submit" name="s3_bucket" type="text" value="<?php echo esc_attr($storage->s3_bucket); ?>">
                 <p><i><?php DUP_PRO_U::esc_html_e("S3 Bucket where you want to save the backups."); ?></i></p>
             </td>
         </tr>
@@ -1123,25 +1114,25 @@ if (!is_null($error_message)) {
         <tr>
             <th scope="row"><label for="ftp_server"><?php DUP_PRO_U::esc_html_e("Server"); ?></label></th>
             <td>
-                <input id="ftp_server" name="ftp_server" data-parsley-errors-container="#ftp_server_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->ftp_server); ?>">
+                <input id="ftp_server" class="dup-empty-field-on-submit" name="ftp_server" data-parsley-errors-container="#ftp_server_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->ftp_server); ?>">
                 <label for="ftp_server"><?php DUP_PRO_U::esc_html_e("Port"); ?></label> <input name="ftp_port" id="ftp_port" data-parsley-errors-container="#ftp_server_error_container" type="text" style="width:75px"  value="<?php echo esc_attr($storage->ftp_port); ?>">
                 <div id="ftp_server_error_container" class="duplicator-error-container"></div>
             </td>
         </tr>
         <tr>
             <th scope="row"><label for="ftp_username"><?php DUP_PRO_U::esc_html_e("Username"); ?></label></th>
-            <td><input id="ftp_username" name="ftp_username" type="text" autocomplete="off" value="<?php echo esc_attr($storage->ftp_username); ?>" /></td>
+            <td><input id="ftp_username" class="dup-empty-field-on-submit" name="ftp_username" type="text" autocomplete="off" value="<?php echo esc_attr($storage->ftp_username); ?>" /></td>
         </tr>
         <tr>
             <th scope="row"><label for="ftp_password"><?php DUP_PRO_U::esc_html_e("Password"); ?></label></th>
             <td>
-                <input id="ftp_password" name="ftp_password" type="password" autocomplete="off" value="<?php echo esc_attr($storage->ftp_password); ?>" >
+                <input id="ftp_password" class="dup-empty-field-on-submit" name="ftp_password" type="password" autocomplete="off" value="<?php echo esc_attr($storage->ftp_password); ?>" >
             </td>
         </tr>
         <tr>
             <th scope="row"><label for="ftp_password2"><?php DUP_PRO_U::esc_html_e("Retype Password"); ?></label></th>
             <td>
-                <input id="ftp_password2" name="ftp_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->ftp_password); ?>" data-parsley-errors-container="#ftp_password2_error_container"  data-parsley-trigger="change" data-parsley-equalto="#ftp_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_html_e("Passwords do not match"); ?>" /><br/>
+                <input id="ftp_password2" class="dup-empty-field-on-submit" name="ftp_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->ftp_password); ?>" data-parsley-errors-container="#ftp_password2_error_container"  data-parsley-trigger="change" data-parsley-equalto="#ftp_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_html_e("Passwords do not match"); ?>" /><br/>
                 <div id="ftp_password2_error_container" class="duplicator-error-container"></div>
             </td>
         </tr>
@@ -1219,7 +1210,7 @@ if (!is_null($error_message)) {
         </tr>
     </table>    
 
-<?php if (DUP_PRO_U::PHP55() && extension_loaded('gmp')) : ?>
+<?php if (extension_loaded('gmp')) : ?>
         <!-- ===============================
         SFTP PROVIDER -->
         <table id="provider-<?php echo DUP_PRO_Storage_Types::SFTP ?>" class="form-table provider" >
@@ -1229,32 +1220,32 @@ if (!is_null($error_message)) {
             <tr>
                 <th scope="row"><label for="sftp_server"><?php DUP_PRO_U::esc_html_e("Server"); ?></label></th>
                 <td>
-                    <input id="sftp_server" name="sftp_server" data-parsley-errors-container="#sftp_server_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->sftp_server); ?>">
+                    <input id="sftp_server" class="dup-empty-field-on-submit" name="sftp_server" data-parsley-errors-container="#sftp_server_error_container" type="text" autocomplete="off" value="<?php echo esc_attr($storage->sftp_server); ?>">
                     <label for="sftp_server"><?php DUP_PRO_U::esc_html_e("Port"); ?></label> <input name="sftp_port" id="sftp_port" data-parsley-errors-container="#sftp_server_error_container" type="text" style="width:75px"  value="<?php echo esc_attr($storage->sftp_port); ?>">
                     <div id="sftp_server_error_container" class="duplicator-error-container"></div>
                 </td>
             </tr>
             <tr>
                 <th scope="row"><label for="sftp_username"><?php DUP_PRO_U::esc_html_e("Username"); ?></label></th>
-                <td><input id="sftp_username" name="sftp_username" type="text" autocomplete="off" value="<?php echo esc_attr($storage->sftp_username); ?>" /></td>
+                <td><input id="sftp_username" class="dup-empty-field-on-submit" name="sftp_username" type="text" autocomplete="off" value="<?php echo esc_attr($storage->sftp_username); ?>" /></td>
             </tr>
             <tr>
                 <th scope="row"><label for="sftp_password"><?php DUP_PRO_U::esc_html_e("Password"); ?></label></th>
                 <td>
-                    <input id="sftp_password" name="sftp_password" type="password" autocomplete="off" value="<?php echo esc_attr($storage->sftp_password); ?>" >
+                    <input id="sftp_password" class="dup-empty-field-on-submit" name="sftp_password" type="password" autocomplete="off" value="<?php echo esc_attr($storage->sftp_password); ?>" >
                 </td>
             </tr>
             <tr>
                 <th scope="row"><label for="sftp_password2"><?php DUP_PRO_U::esc_html_e("Retype Password"); ?></label></th>
                 <td>
-                    <input id="sftp_password2" name="sftp_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_password); ?>" data-parsley-errors-container="#sftp_password2_error_container"  data-parsley-trigger="change" data-parsley-equalto="#sftp_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_attr_e("Passwords do not match"); ?>" /><br/>
+                    <input id="sftp_password2" class="dup-empty-field-on-submit" name="sftp_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_password); ?>" data-parsley-errors-container="#sftp_password2_error_container"  data-parsley-trigger="change" data-parsley-equalto="#sftp_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_attr_e("Passwords do not match"); ?>" /><br/>
                     <div id="sftp_password2_error_container" class="duplicator-error-container"></div>
                 </td>
             </tr>
             <tr>
                 <th scope="row"><label for="sftp_private_key"><?php DUP_PRO_U::esc_html_e("Private Key (PuTTY)"); ?></label></th>
                 <td>
-                    <input id="sftp_private_key_file" name="sftp_private_key_file" onchange="DupPro.Storage.SFTP.ReadPrivateKey(this);" type="file"  accept="ppk" value="" data-parsley-errors-container="#sftp_private_key_error_container" /><br/>
+                    <input id="sftp_private_key_file" class="dup-empty-field-on-submit" name="sftp_private_key_file" onchange="DupPro.Storage.SFTP.ReadPrivateKey(this);" type="file"  accept="ppk" value="" data-parsley-errors-container="#sftp_private_key_error_container" /><br/>
                     <input type="hidden" name="sftp_private_key" id="sftp_private_key" value="<?php echo esc_attr($storage->sftp_private_key); ?>" />
                     <div id="sftp_private_key_error_container" class="duplicator-error-container"></div>
                 </td>
@@ -1262,14 +1253,14 @@ if (!is_null($error_message)) {
             <tr>
                 <th scope="row"><label for="sftp_private_key_password"><?php DUP_PRO_U::esc_html_e("Private Key Password"); ?></label></th>
                 <td>
-                    <input id="sftp_private_key_password" name="sftp_private_key_password" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_private_key_password); ?>" data-parsley-errors-container="#sftp_private_key_password_error_container" /><br/>
+                    <input id="sftp_private_key_password" class="dup-empty-field-on-submit" name="sftp_private_key_password" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_private_key_password); ?>" data-parsley-errors-container="#sftp_private_key_password_error_container" /><br/>
                     <div id="sftp_private_key_password_error_container" class="duplicator-error-container"></div>
                 </td>
             </tr>
             <tr>
                 <th scope="row"><label for="sftp_private_key_password2"><?php DUP_PRO_U::esc_html_e("Private Key Retype Password"); ?></label></th>
                 <td>
-                    <input id="sftp_private_key_password2" name="sftp_private_key_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_private_key_password); ?>" data-parsley-errors-container="#sftp_private_key_password2_error_container" data-parsley-trigger="change" data-parsley-equalto="#sftp_private_key_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_html_e("Passwords do not match"); ?>" /><br/>
+                    <input id="sftp_private_key_password2" class="dup-empty-field-on-submit" name="sftp_private_key_password2" type="password"  autocomplete="off" value="<?php echo esc_attr($storage->sftp_private_key_password); ?>" data-parsley-errors-container="#sftp_private_key_password2_error_container" data-parsley-trigger="change" data-parsley-equalto="#sftp_private_key_password" data-parsley-equalto-message="<?php DUP_PRO_U::esc_html_e("Passwords do not match"); ?>" /><br/>
                     <div id="sftp_private_key_password2_error_container" class="duplicator-error-container"></div>
                 </td>
             </tr>
@@ -1467,7 +1458,7 @@ if (!is_null($error_message)) {
                 </label>
             </th>
             <td>
-                <input data-parsley-errors-container="#_local_storage_folder_error_container" data-parsley-required="true"  type="text" id="_local_storage_folder" name="_local_storage_folder" data-parsley-pattern=".*" data-parsley-not-core-paths="true" value="<?php echo esc_attr($storage->local_storage_folder); ?>" />
+                <input data-parsley-errors-container="#_local_storage_folder_error_container" data-parsley-required="true"  type="text" id="_local_storage_folder" class="dup-empty-field-on-submit" name="_local_storage_folder" data-parsley-pattern=".*" data-parsley-not-core-paths="true" value="<?php echo esc_attr($storage->local_storage_folder); ?>" />
                 <script>
                     window.Parsley
                     .addValidator('notCorePaths', {
@@ -1761,6 +1752,13 @@ $alert19->initAlert();
             $('#dup-storage-form').parsley();
 
         };
+
+        // Removes the values of hidden input fields marked with class dup-empty-field-on-submit
+        DupPro.Storage.EmptyValues = function () {
+            $(':hidden .dup-empty-field-on-submit').val('');
+        }
+
+        $('#dup-storage-form').submit(DupPro.Storage.EmptyValues);
 
         // GENERAL STORAGE LOGIC
         DupPro.Storage.ChangeMode = function (animateOverride) {

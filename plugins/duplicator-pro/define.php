@@ -16,8 +16,8 @@ if (!defined('GB_IN_BYTES')) {
 }
 
 define('DUPLICATOR_PRO_PRE_RELEASE_VERSION', null);
-define('DUPLICATOR_PRO_VERSION', '4.5.2');
-define('DUPLICATOR_PRO_GIFT_THIS_RELEASE', false); // Display Gift - should be true for new features OR if we want them to fill out survey
+define('DUPLICATOR_PRO_VERSION', '4.5.3');
+define('DUPLICATOR_PRO_GIFT_THIS_RELEASE', true); // Display Gift - should be true for new features OR if we want them to fill out survey
 define('DUPLICATOR_PRO_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('DUPLICATOR_PRO_SITE_URL', get_site_url());
 define('DUPLICATOR_PRO_IMG_URL', DUPLICATOR_PRO_PLUGIN_URL . '/assets/img');
@@ -141,6 +141,10 @@ if (!defined('DUPLICATOR_PRO_DISALLOW_IMPORT')) {
     define('DUPLICATOR_PRO_DISALLOW_IMPORT', false);
 }
 
-if (!defined('DUP_SECURE_KEY')) {
-    define('DUP_SECURE_KEY', '');
+if (!defined('DUPLICATOR_PRO_DISALLOW_RECOVERY')) {
+    define('DUPLICATOR_PRO_DISALLOW_RECOVERY', false);
+}
+
+if (!defined('DUPLICATOR_AUTH_KEY')) {
+    define('DUPLICATOR_AUTH_KEY', '');
 }

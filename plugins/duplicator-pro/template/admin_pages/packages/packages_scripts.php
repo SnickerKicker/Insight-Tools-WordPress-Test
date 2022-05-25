@@ -4,7 +4,7 @@
  * Duplicator package row in table packages list
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -92,8 +92,8 @@ $alert6->message =
              __('Remote', 'duplicator-pro'),
              __('For packages stored remotely check the remote storage button next to the download button.', 'duplicator-pro'),
              __('Local', 'duplicator-pro'),
-             __('To enable the direct download button be sure the local \'Default\' storage type is enabled when creating a package.  For local '
-                . '\'Non-Default\' storage types use FTP or your hosts file manager.', 'duplicator-pro'),
+             __('To enable the direct download button be sure the local \'Default\' or a non-default, but \'Local\''
+                . 'storage type is enabled when creating a package.', 'duplicator-pro'),
              __("Note: If the Storage &#10095; Default &#10095; 'Max Packages' is set then packages will be removed but the entry will still be visible "
                 . "on the packages screen.", 'duplicator-pro')
          );
@@ -848,21 +848,32 @@ jQuery(document).ready(function($) {
 
     $( "body" ).on( "click", '.dup-recovery-box-info .dpro-btn-set-recovery', function() {
         $('.dup-recovery-box-info .dpro-btn-set-recovery').text('<?php DUP_PRO_U::_e('Processing Please Wait...');?>').prop('disabled','disabled');
-        DupPro.Pack.SetRecoveryPoint($(this).data('package-id'), DupPro.Pack.afterSetRecoveryCallback);
+        DupPro.Pack.SetRecoveryPoint(
+            $(this).data('package-id'), 
+            DupPro.Pack.afterSetRecoveryCallback,
+            function () {
+                <?php $menuRecoveryRecoveryBox->closeAlert(); ?>
+            }
+        );
     });
 
     $( "body" ).on( "click", '.dup-recovery-box-info .dpro-btn-set-launch-recovery', function() {
-        DupPro.Pack.SetRecoveryPoint($(this).data('package-id'), function (funcData, data, textStatus, jqXHR) {
-            DupPro.Pack.afterSetRecoveryCallback(funcData, data, textStatus, jqXHR);
-            
-            setTimeout(
-                function () {  
-                    window.open(funcData.recoveryLink);
-                }, 
-                1000
-            );
-
-        });
+        DupPro.Pack.SetRecoveryPoint(
+            $(this).data('package-id'), 
+            function (funcData, data, textStatus, jqXHR) {
+                DupPro.Pack.afterSetRecoveryCallback(funcData, data, textStatus, jqXHR);
+                
+                setTimeout(
+                    function () {  
+                        window.open(funcData.recoveryLink);
+                    }, 
+                    1000
+                );
+            },
+            function () {
+                <?php $menuRecoveryRecoveryBox->closeAlert(); ?>
+            }
+        );
     });
 
 });

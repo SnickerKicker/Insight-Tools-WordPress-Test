@@ -8,12 +8,14 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
+use Duplicator\Installer\Utils\SecureCsrf;
 use Duplicator\Libs\Snap\SnapJson;
 
 $nextStepPrams = array(
     PrmMng::PARAM_CTRL_ACTION => 'ctrl-step2',
-    DUPX_Security::CTRL_TOKEN               => DUPX_CSRF::generate('ctrl-step2')
+    Security::CTRL_TOKEN => SecureCsrf::generate('ctrl-step2')
 );
 ?>
 <script>

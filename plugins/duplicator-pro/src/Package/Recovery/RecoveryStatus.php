@@ -142,7 +142,7 @@ class RecoveryStatus
 
         switch ($this->objectType) {
             case self::TYPE_PACKAGE:
-                $isEnabled = ($this->object->get_local_package_file(DUP_PRO_Package_File_Type::Archive) !== null);
+                $isEnabled = ($this->object->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive) !== false);
                 break;
             case self::TYPE_SCHEDULE:
                 if (in_array(DUP_PRO_Virtual_Storage_IDs::Default_Local, $this->object->storage_ids)) {

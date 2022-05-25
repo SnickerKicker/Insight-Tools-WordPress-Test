@@ -2,6 +2,7 @@
 
 defined("DUPXABSPATH") or die("");
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\Descriptors\ParamDescConfigs;
 use Duplicator\Installer\Core\Params\PrmMng;
@@ -654,7 +655,7 @@ class DUPX_InstallerState
      */
     public static function getMigrationData()
     {
-        $sec           = DUPX_Security::getInstance();
+        $sec           = Security::getInstance();
         $paramsManager = PrmMng::getInstance();
 
         return array(

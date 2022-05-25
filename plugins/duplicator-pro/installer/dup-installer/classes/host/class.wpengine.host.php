@@ -38,10 +38,10 @@ class DUPX_WPEngine_Host implements DUPX_Host_interface
      */
     public function isHosting()
     {
-        // check only mu plugin file exists
-
-        $file = PrmMng::getInstance()->getValue(PrmMng::PARAM_PATH_MUPLUGINS_NEW) . '/wpengine-security-auditor.php';
-        return file_exists($file);
+        ob_start();
+        phpinfo(INFO_ENVIRONMENT);
+        $serverinfo = ob_get_clean();
+        return (strpos($serverinfo, "WPENGINE_ACCOUNT") !== false);
     }
 
     /**

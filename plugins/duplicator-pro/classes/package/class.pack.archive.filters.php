@@ -12,25 +12,37 @@ class DUP_PRO_Archive_Filter_Scope_Base
      * @var array All internal storage items that we decide to filter
      */
     public $Core             = array();
-//TODO: Enable with Settings UI
+    //TODO: Enable with Settings UI
 
     /**
      * @var array Global filter items added from settings
      */
     public $Global           = array();
-/**
+    /**
      * @var array Items when creating a package or template
      */
     public $Instance         = array();
-/**
+    /**
      * @var array Items that are not readable
      */
     public $Unreadable       = array();
-/**
+    /**
      * @var int Number of unreadable items
      */
     private $unreadableCount = 0;
-/**
+
+    /**
+     * Filter props on json encode
+     *
+     * @return strng[]
+     */
+    public function __sleep()
+    {
+        $props = array_keys(get_object_vars($this));
+        return array_diff($props, array('unreadableCount'));
+    }
+    
+    /**
      * @param string $item A path to an unreadable item
      */
     public function addUnreadableItem($item)
@@ -61,11 +73,11 @@ class DUP_PRO_Archive_Filter_Scope_Directory extends DUP_PRO_Archive_Filter_Scop
      * @var array Items that are not readable
      */
     public $Warning    = array();
-/**
+    /**
      * @var array Directories containing other WordPress installs
      */
     public $AddonSites = array();
-/**
+    /**
      * @var array Items that are too large
      */
     public $Size       = array();
@@ -82,7 +94,7 @@ class DUP_PRO_Archive_Filter_Scope_File extends DUP_PRO_Archive_Filter_Scope_Bas
      * @var array Items that are not readable
      */
     public $Warning = array();
-/**
+    /**
      * @var array Items that are too large
      */
     public $Size    = array();
@@ -100,26 +112,27 @@ class DUP_PRO_Archive_Filter_Info
      * @var DUP_PRO_Archive_Filter_Scope_Directory
      */
     public $Dirs  = null;
-/**
+    /**
      * Contains all folder filter info
      * @var DUP_PRO_Archive_Filter_Scope_File
      */
     public $Files = null;
-/**
+    /**
      * Contains all folder filter info
      * @var DUP_PRO_Archive_Filter_Scope_Base
      */
     public $Exts  = null;
-/**
+    /**
      * tree size structure for client jstree
      * @var DUP_PRO_Tree_files
      */
     public $TreeSize = null;
-/**
+    /**
      * tree char warnings structure for client jstree
      * @var DUP_PRO_Tree_files
      */
     public $TreeWarning = null;
+
     public function __construct()
     {
         $this->reset(true);

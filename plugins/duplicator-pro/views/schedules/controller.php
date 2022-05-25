@@ -2,10 +2,6 @@
 
 defined("ABSPATH") or die("");
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-require_once(DUPLICATOR____PATH . '/src/Package/Recovery/RecoveryStatus.php');
-
-
 DUP_PRO_Handler::init_error_handler();
 
 global $wpdb;

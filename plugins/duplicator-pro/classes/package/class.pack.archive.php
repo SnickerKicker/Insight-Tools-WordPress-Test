@@ -20,15 +20,16 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
 use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapURL;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Libs\Snap\SnapOS;
+use Duplicator\Package\Create\DupArchive\PackageDupArchive;
 
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.archive.filters.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.archive.zip.php');
-require_once(DUPLICATOR____PATH . '/classes/package/duparchive/class.pack.archive.duparchive.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.archive.shellzip.php');
 require_once(DUPLICATOR____PATH . '/classes/class.exceptions.php');
 require_once(DUPLICATOR____PATH . '/classes/class.io.php');
@@ -71,6 +72,7 @@ class DUP_PRO_Archive
     /** @var DUP_PRO_Global_Entity */
     private $global;
     private $tmpFilterDirsAll = array();
+    /** @var string[] relatrive path filters */
     private $relativeFiltersDir = array();
 
     /**
@@ -123,6 +125,45 @@ class DUP_PRO_Archive
     }
 
     /**
+     * Filter props on json encode
+     *
+     * @return string[]
+     */
+    public function __sleep()
+    {
+        $props = array_keys(get_object_vars($this));
+        return array_diff($props, array('global', 'Package', 'tmpFilterDirsAll', 'relativeFiltersDir', 'listFileObj', 'listDirObj'));
+    }
+
+    /**
+     * Return true if archive must is encrypted
+     *
+     * @return bool
+     */
+    public function isArchiveEncrypt() {
+        return (
+            $this->Package->Installer->OptsSecureOn == ArchiveConfig::SECURE_MODE_ARC_ENCRYPT && 
+            strlen($this->Package->Installer->passowrd) > 0
+        );
+    }
+    
+    /**
+     * Get archive password, empty no password
+     * 
+     * Important: This function returns the valued password only in case the security mode is encrypted archive. 
+     * In case the security is only password only at the installer level this function will return the empty password. 
+     *
+     * @return string
+     */
+    public function getArchivePassword() {
+        if ($this->Package->Installer->OptsSecureOn == ArchiveConfig::SECURE_MODE_ARC_ENCRYPT) {
+            return $this->Package->Installer->passowrd;
+        } else {
+            return '';
+        }
+    }
+
+    /**
      * Builds the archive file
      *
      * @param DUP_PRO_Package $package
@@ -147,22 +188,19 @@ class DUP_PRO_Archive
                 case 'TAR':
                     break;
                 case 'DAF':
-                    $completed = DUP_PRO_Dup_Archive::create($this, $build_progress);
+                    $completed = PackageDupArchive::create($this->Package, $build_progress);
                     $this->Package->Update();
-
                     break;
                 default:
                     $this->Format = 'ZIP';
                     if ($build_progress->current_build_mode == DUP_PRO_Archive_Build_Mode::Shell_Exec) {
                         DUP_PRO_LOG::trace('Doing shell exec zip');
-                        $completed = DUP_PRO_ShellZip::create($this, $build_progress);
+                        $completed = DUP_PRO_ShellZip::create($this->Package, $build_progress);
                     } else {
-                        $zipArchive = new DUP_PRO_ZipArchive();
-                        $completed  = $zipArchive->create($this, $build_progress);
+                        $zipArchive = new DUP_PRO_ZipArchive($this->Package);
+                        $completed  = $zipArchive->create($build_progress);
                     }
-
                     $this->Package->Update();
-
                     break;
             }
 
@@ -474,6 +512,8 @@ class DUP_PRO_Archive
                 $paths['home'] . '/.opcache',
                 $paths['home'] . '/.tmb',
                 //WP-CONTENT
+                $paths['wpcontent'] . '/backups-dup-lite',
+                $paths['wpcontent'] . '/backups-dup-pro',
                 $paths['wpcontent'] . '/ai1wm-backups',
                 $paths['wpcontent'] . '/backupwordpress',
                 $paths['wpcontent'] . '/content/cache',

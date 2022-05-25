@@ -4,7 +4,7 @@
  * Auloader calsses
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -47,7 +47,7 @@ final class Autoloader
             $legacyClass    = strtolower(ltrim($className, '\\'));
             if (array_key_exists($legacyClass, $legacyMappging)) {
                 if (file_exists($legacyMappging[$legacyClass])) {
-                    include_once($legacyMappging[$legacyClass]);
+                    include $legacyMappging[$legacyClass];
                     return true;
                 }
             }
@@ -63,14 +63,15 @@ final class Autoloader
                     }
 
                     $filepath = $mappedPath . str_replace('\\', '/', substr($className, strlen($namespace))) . '.php';
+
                     if (file_exists($filepath)) {
-                        include_once($filepath);
+                        include $filepath;
                         return true;
                     }
                 }
             } else {
                 if (file_exists($filepath)) {
-                    include_once($filepath);
+                    include $filepath;
                     return true;
                 }
             }
@@ -120,7 +121,7 @@ final class Autoloader
         switch (strtolower(ltrim($className, '\\'))) {
             case 'requests':
                 // Include Requests if don't exists in old WP versions
-                require_once(DUPLICATOR____PATH . '/vendor/requests/library/Requests.php');
+                require(DUPLICATOR____PATH . '/vendor/requests/library/Requests.php');
                 \Requests::register_autoloader();
                 return true;
             default:
@@ -150,17 +151,34 @@ final class Autoloader
             'dup_pro_low_u'                   => DUPLICATOR____PATH . '/classes/utilities/class.u.low.php',
             'dup_pro_settings_u'              => DUPLICATOR____PATH . '/classes/utilities/class.u.settings.php',
             'dup_pro_shell_u'                 => DUPLICATOR____PATH . '/classes/utilities/class.u.shell.php',
-            'dup_pro_json_entity_base'        => DUPLICATOR____PATH . '/classes/entities/class.json.entity.base.php',
-            'dup_pro_system_global_entity'    => DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php',
-            'dup_pro_storage_entity'          => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
-            'dup_pro_profile_logs_entity'     => DUPLICATOR____PATH . '/classes/entities/class.profilelogs.entity.php',
             'dup_pro_brand_entity'            => DUPLICATOR____PATH . '/classes/entities/class.brand.entity.php',
             'dup_pro_global_entity'           => DUPLICATOR____PATH . '/classes/entities/class.global.entity.php',
+            'dup_pro_json_entity_base'        => DUPLICATOR____PATH . '/classes/entities/class.json.entity.base.php',
             'dup_pro_package_template_entity' => DUPLICATOR____PATH . '/classes/entities/class.package.template.entity.php',
+            'dup_pro_profile_logs_entity'     => DUPLICATOR____PATH . '/classes/entities/class.profilelogs.entity.php',
             'dup_pro_schedule_entity'         => DUPLICATOR____PATH . '/classes/entities/class.schedule.entity.php',
-            'dup_pro_duparchive_expand_state_entity' => DUPLICATOR____PATH . '/classes/entities/class.duparchive.expandstate.entity.php',
             'dup_pro_schedule_repeat_types'   => DUPLICATOR____PATH . '/classes/entities/class.schedule.entity.php',
             'dup_pro_schedule_days'           => DUPLICATOR____PATH . '/classes/entities/class.schedule.entity.php',
+            'dup_pro_secure_global_entity'    => DUPLICATOR____PATH . '/classes/entities/class.secure.global.entity.php',
+            'dup_pro_ftp_chunker'             => DUPLICATOR____PATH . '/classes/net/class.ftp.chunker.php',
+            'dup_pro_ftpcurl'                 => DUPLICATOR____PATH . '/classes/net/class.ftp.curl.php',
+            'dup_pro_gdrive_u'                => DUPLICATOR____PATH . '/classes/net/class.u.gdrive.php',
+            'dup_pro_gdriveclient_uploadinfo' => DUPLICATOR____PATH . '/classes/net/class.u.gdrive.php',
+            'dup_pro_onedrive_config'         => DUPLICATOR____PATH . '/classes/net/class.u.onedrive.php',
+            'dup_pro_onedrive_u'              => DUPLICATOR____PATH . '/classes/net/class.u.onedrive.php',
+            'dup_pro_s3_client_uploadinfo'    => DUPLICATOR____PATH . '/classes/net/class.u.s3.php',
+            'dup_pro_s3_u'                    => DUPLICATOR____PATH . '/classes/net/class.u.s3.php',
+            'dup_pro_phpseclib'               => DUPLICATOR____PATH . '/lib/phpseclib/class.phpseclib.php',
+            'dup_pro_dropboxv2client_uploadinfo' => DUPLICATOR____PATH . '/lib/DropPHP/DropboxV2Client.php',
+            'dup_pro_dropboxv2client'         => DUPLICATOR____PATH . '/lib/DropPHP/DropboxV2Client.php',
+            'dup_pro_storage_entity'          => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_storage_types'           => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_virtual_storage_ids'     => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_dropbox_authorization_states' => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_onedrive_authorization_states' => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_gdrive_authorization_states' => DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php',
+            'dup_pro_system_global_entity'    => DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php',
+            'dup_pro_recommended_fix'         => DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php',
             'dup_pro_verifier_base'           => DUPLICATOR____PATH . '/classes/entities/class.verifiers.php',
             'dup_pro_required_verifier'       => DUPLICATOR____PATH . '/classes/entities/class.verifiers.php',
             'dup_pro_range_verifier'          => DUPLICATOR____PATH . '/classes/entities/class.verifiers.php',
@@ -174,10 +192,6 @@ final class Autoloader
             'dup_pro_package_recover'         => DUPLICATOR____PATH . '/classes/package/class.pack.recover.php',
             'dup_pro_archive'                 => DUPLICATOR____PATH . '/classes/package/class.pack.archive.php',
             'dup_pro_database'                => DUPLICATOR____PATH . '/classes/package/class.pack.database.php',
-            'dup_pro_dup_archive_create_state' => DUPLICATOR____PATH . '/classes/package/duparchive/class.pack.archive.duparchive.state.create.php',
-            'dup_pro_duparchive_expand_state' => DUPLICATOR____PATH . '/classes/package/duparchive/class.pack.archive.duparchive.state.expand.php',
-            'dup_pro_dup_archive'             => DUPLICATOR____PATH . '/classes/package/duparchive/class.pack.archive.duparchive.php',
-            'dup_pro_dup_archive_logger'      => DUPLICATOR____PATH . '/classes/package/duparchive/class.pack.archive.duparchive.php',
             'dup_pro_custom_host_manager'     => DUPLICATOR____PATH . '/classes/host/class.custom.host.manager.php',
             'dup_pro_ui'                      => DUPLICATOR____PATH . '/classes/ui/class.ui.php',
             'dup_pro_ui_alert'                => DUPLICATOR____PATH . '/classes/ui/class.ui.alert.php',
@@ -194,7 +208,6 @@ final class Autoloader
             'dup_pro_log'                     => DUPLICATOR____PATH . '/classes/class.logging.php',
             'dup_pro_restoreonly_package'     => DUPLICATOR____PATH . '/classes/class.restoreonly.package.php',
             'dup_pro_server'                  => DUPLICATOR____PATH . '/classes/class.server.php',
-            'dup_pro_passwordhash'            => DUPLICATOR____PATH . '/classes/class.password.php',
             'dup_pro_web_services'            => DUPLICATOR____PATH . '/ctrls/class.web.services.php',
             'dup_pro_ctrl_package'            => DUPLICATOR____PATH . '/ctrls/ctrl.package.php',
             'dup_pro_ctrl_tools'              => DUPLICATOR____PATH . '/ctrls/ctrl.tools.php',

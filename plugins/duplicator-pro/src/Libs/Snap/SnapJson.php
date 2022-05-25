@@ -3,15 +3,11 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
 namespace Duplicator\Libs\Snap;
-
-// phpcs:disable
-require_once(__DIR__ . '/JsonSerializable.php'); 
-// phpcs:enable
 
 class SnapJson
 {

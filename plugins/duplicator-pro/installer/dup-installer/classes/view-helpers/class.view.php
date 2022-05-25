@@ -11,8 +11,10 @@
  */
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\PrmMng;
+use Duplicator\Installer\Utils\SecureCsrf;
 
 /**
  * View functions
@@ -50,7 +52,7 @@ class DUPX_View_Funcs
 
         return '?' . http_build_query(array(
                 PrmMng::PARAM_CTRL_ACTION => 'help',
-                DUPX_Security::CTRL_TOKEN => DUPX_CSRF::generate('help'),
+                Security::CTRL_TOKEN => SecureCsrf::generate('help'),
                 'basic'                   => '',
                 'open_section'            => $helpOpenSection
         ));

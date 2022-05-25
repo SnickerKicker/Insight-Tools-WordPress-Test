@@ -517,15 +517,21 @@ class DUP_PRO_Migration
         return strpos(implode("", $last5Lines), "DUPLICATOR_PRO_INSTALLER_EOF") !== false;
     }
 
-    public static function cleanMigrationFiles()
+    public static function cleanMigrationFiles($deleteCleanInstallReportOption = true, $fileTimeDelay = 0)
     {
         $cleanList = self::checkInstallerFilesList();
 
         $result = array();
 
         foreach ($cleanList as $path) {
+            $success = false;
             try {
-                $success = (SnapIO::rrmdir($path) !== false);
+                if ($fileTimeDelay <= 0 || time() - filectime($path) > $fileTimeDelay) {
+                    $success = (SnapIO::rrmdir($path) !== false);
+                } else {
+                    // The file does not even need to be removed yet
+                    $success = true;
+                }
             } catch (Exception $ex) {
                 $success = false;
             } catch (Error $ex) {
@@ -535,7 +541,9 @@ class DUP_PRO_Migration
             $result[$path] = $success;
         }
 
-        delete_option(self::CLEAN_INSTALL_REPORT_OPTION);
+        if ($deleteCleanInstallReportOption) {
+            delete_option(self::CLEAN_INSTALL_REPORT_OPTION);
+        }
 
         return $result;
     }

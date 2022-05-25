@@ -36,7 +36,10 @@ $package = DUP_PRO_Package::get_by_id($package_id);
 $package_found = is_object($package) ? true : false;
 
 if ($package_found) {
-    $enable_transfer_tab = $package->does_default_storage_exist();
+    $enable_transfer_tab = (
+        $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer) !== false && 
+        $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive) !== false
+    );
     $error_display      = ($package->Status == DUP_PRO_PackageStatus::ERROR) ? 'default' : 'none';
     $err_link_pack      = $package->get_log_url();
     $err_link_log       = "<a target='_blank' href=\"$err_link_pack\">" . DUP_PRO_U::__('package log') . '</a>';

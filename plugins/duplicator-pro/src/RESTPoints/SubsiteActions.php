@@ -4,7 +4,7 @@
  * REST point for overwrite subsites
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 

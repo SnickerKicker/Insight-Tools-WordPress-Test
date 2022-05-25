@@ -1,27 +1,29 @@
 <?php
 
 /**
- * Interface that collects the functions of initial duplicator Bootstrap
- *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
- *
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 namespace Duplicator\Installer\Core;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Utils\Log\LogHandler;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Libs\Snap\SnapURL;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Installer\Core\Addons\InstAddonsManager;
+use Duplicator\Libs\Snap\SnapIO;
 
+/**
+ * Class that collects the functions of initial duplicator Bootstrap
+ */
 class Bootstrap
 {
     const ARCHIVE_PREFIX      = 'dup-archive__';
     const ARCHIVE_EXTENSION   = '.txt';
-    const MINIMUM_PHP_VERSION = '5.3.8';
+    const MINIMUM_PHP_VERSION = '5.6.20';
 
     /**
      * this variable becomes false after the installer is initialized by skipping the shutdown function defined in the boot class
@@ -82,7 +84,7 @@ class Bootstrap
         // init templates
         self::templatesInit();
         // SECURITY CHECK
-        \DUPX_Security::getInstance()->check();
+        Security::getInstance()->check();
         // init error handler after constant
         LogHandler::initErrorHandler();
 
@@ -186,16 +188,13 @@ class Bootstrap
         require_once(DUPX_INIT . '/classes/utilities/template/class.u.template.manager.php');
         require_once(DUPX_INIT . '/classes/utilities/class.u.orig.files.manager.php');
         require_once(DUPX_INIT . '/classes/validation/class.validation.manager.php');
-        require_once(DUPX_INIT . '/classes/config/class.security.php');
         require_once(DUPX_INIT . '/classes/plugins/class.plugins.manager.php');
-        require_once(DUPX_INIT . '/classes/class.password.php');
         require_once(DUPX_INIT . '/classes/database/class.db.php');
         require_once(DUPX_INIT . '/classes/database/class.db.functions.php');
         require_once(DUPX_INIT . '/classes/database/class.db.tables.php');
         require_once(DUPX_INIT . '/classes/database/class.db.table.item.php');
         require_once(DUPX_INIT . '/classes/class.http.php');
         require_once(DUPX_INIT . '/classes/class.crypt.php');
-        require_once(DUPX_INIT . '/classes/class.csrf.php');
         require_once(DUPX_INIT . '/classes/class.package.php');
         require_once(DUPX_INIT . '/classes/class.server.php');
         require_once(DUPX_INIT . '/classes/rest/class.rest.php');
@@ -388,6 +387,7 @@ class Bootstrap
             \DUP_PRO_Extraction::resetData();
             \DUPX_DBInstall::resetData();
             \DUPX_S3_Funcs::resetData();
+            self::renameHtaccess();
 
             // update state only if isn't set by param overwrite
             \DUPX_InstallerState::getInstance()->checkState(true, false);
@@ -403,6 +403,28 @@ class Bootstrap
         }
 
         $paramManager->save();
+    }
+
+    /**
+     * Rename .htaccess file in dup-installer folder if it exists, so that it does not interfere with installer
+     *
+     * @return void
+     */
+    protected static function renameHtaccess()
+    {
+        $htaccessPath = DUPXABSPATH . "/.htaccess";
+        if (!file_exists($htaccessPath)) {
+            return;
+        }
+
+        $htaccessPathRenamed = DUPXABSPATH . "/renamed_" . date_format(new \DateTime(), 'mdYHis') . ".htaccess";
+        if (!SnapIO::rename($htaccessPath, $htaccessPathRenamed)) {
+            $errorMsg  = "WARNING: Could not delete/rename file \"$htaccessPath\". That file could interfere with the installation.\n";
+            $errorMsg .= "If you encounter problems like buttons not working, please remove it yourself manually and restart the installer.";
+            Log::info($errorMsg);
+        } else {
+            Log::info(".htaccess file was found in dup-installer folder and it was renamed to avoid interference with installer.");
+        }
     }
 
     /**

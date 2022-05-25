@@ -20,22 +20,15 @@ class DUPX_Server
         'wp-includes'
     );
 
+    /**
+     * Return PHP safe nome, on PHP 5.4 is always false
+     *
+     * @return bool
+     */
     public static function phpSafeModeOn()
     {
-        if (version_compare(PHP_VERSION, '5.4.0', '>=')) {
-            // safe_mode  has been DEPRECATED as of PHP 5.3.0 and REMOVED as of PHP 5.4.0.
-            return false;
-        } else {
-            return filter_var(
-                ini_get('safe_mode'),
-                FILTER_VALIDATE_BOOLEAN,
-                array(
-                    'options' => array(
-                        'default' => false
-                    )
-                )
-            );
-        }
+        // safe_mode  has been DEPRECATED as of PHP 5.3.0 and REMOVED as of PHP 5.4.0.
+        return false;
     }
 
     /**

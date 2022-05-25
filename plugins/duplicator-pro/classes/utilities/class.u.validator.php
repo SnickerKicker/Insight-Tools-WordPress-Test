@@ -37,13 +37,15 @@ class DUP_PRO_Validator
     const FILTER_VALIDATE_FOLDER_WITH_COMMENT = 'fdirwc';
     const FILTER_VALIDATE_FILE_EXT            = 'fext';
     const FILTER_VALIDATE_EMAIL               = 'email';
-/**
+    
+    /**
      * @var array $errors [ ['key' => string field key,
      *                      'msg' => error message ] , [] ]
      */
     private $errors = array();
-/**
-     *
+
+    /**
+     * Class contructor
      */
     public function __construct()
     {
@@ -115,7 +117,7 @@ class DUP_PRO_Validator
      * @param string $key
      * @param string $msg
      */
-    protected function addError($key, $msg)
+    public function addError($key, $msg)
     {
         $this->errors[] = array(
             'key' => $key,
@@ -191,7 +193,7 @@ class DUP_PRO_Validator
             'options' => array(
                 'regexp' => self::$patterns[$filter])
             ));
-//$options['regexp'] = self::$patterns[$filter];
+        //$options['regexp'] = self::$patterns[$filter];
 
         return $this->filter_var($variable, FILTER_VALIDATE_REGEXP, $options);
     }

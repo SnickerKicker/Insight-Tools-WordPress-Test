@@ -22,7 +22,7 @@
 namespace Duplicator\Addons\ProBase;
 
 // phpcs:disable
-require_once __DIR__ . '/vendor/edd/Duplicator_EDD_SL_Plugin_Updater.php';
+require_once __DIR__ . '/vendor/edd/EDD_SL_Plugin_Updater.php';
 // phpcs:enable
 
 use Duplicator\Controllers\SchedulePageController;

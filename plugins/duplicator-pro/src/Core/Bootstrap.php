@@ -4,7 +4,7 @@
  * Interface that collects the functions of initial duplicator Bootstrap
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -60,6 +60,10 @@ class Bootstrap
         AddonsManager::getInstance()->inizializeAddons();
         ControllersManager::getInstance();
         RESTManager::getInstance();
+
+        // These are necessary for cron job for cleanup of installer files
+        add_action(\DUP_PRO_Global_Entity::CLEANUP_HOOK, array('\DUP_PRO_Global_Entity', 'cleanupCronJob'));
+        add_filter('cron_schedules', array('\DUP_PRO_Global_Entity', 'customCleanupCronInterval'));
     }
 
     /**

@@ -367,10 +367,10 @@ class DUPX_U_Html
         ?>
         <div <?php echo $idAttr; ?>class="<?php echo implode(' ', $mainClasses); ?>" data-more-step="<?php echo $atStep; ?>" style="max-height: <?php echo $atStep; ?>px">
             <div class="more-wrapper" ><?php echo $htmlContent; ?></div>
-            <div class="more-faq-link">
+            <p class="more-faq-link align-">
                 Please search the <a href="https://snapcreek.com/duplicator/docs/faqs-tech/" target="_blank">Online Technical FAQs</a>
                 for solutions to these issues.
-            </div>
+            </p>
             <button class="more-button" type="button">[show more]</button>
             <button class="all-button" type="button" >[show all]</button>
         </div>

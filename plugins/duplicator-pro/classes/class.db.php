@@ -259,9 +259,9 @@ class DUP_PRO_DB extends wpdb
                     continue;
                 }
 
-                $collations = array_unique(array_merge($collations, $wpdb->get_col()));
+                $collations = array_merge($collations, $wpdb->get_col());
             }
-
+            $collations = array_values(array_unique($collations));
             sort($collations);
         }
 
@@ -272,12 +272,14 @@ class DUP_PRO_DB extends wpdb
      * Returns list of MySQL engines used by $tablesToInclude in the current DB
      *
      * @param string[] $tablesToInclude tables to check the engines for
-     * @return null
-     * @throws Exception
+     * 
+     * @return string[]
      */
     public static function getTableEngineList($tablesToInclude)
     {
+        /** @var wpdb $wpdb */
         global $wpdb;
+
         static $engines = null;
         if (is_null($engines)) {
             $engines = array();
@@ -288,9 +290,9 @@ class DUP_PRO_DB extends wpdb
                 if (!$wpdb->query($query)) {
                     DUP_PRO_Log::info("GET TABLE ENGINES ERROR: " . $wpdb->last_error);
                 }
-
-                $engines = array_unique(array_merge($engines, $wpdb->get_col($query)));
+                $engines = array_merge($engines, $wpdb->get_col($query));
             }
+            $engines = array_values(array_unique($engines));
         }
 
         return $engines;

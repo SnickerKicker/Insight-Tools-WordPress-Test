@@ -3,15 +3,11 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
 namespace Duplicator\Libs\Snap\JsonSerialize;
-
-// phpcs:disable
-require_once(dirname(__DIR__) . '/JsonSerializable.php'); 
-// phpcs:enable
 
 /**
  * Abstract class to extend in order to use the maximum potentialities of JsonSerialize

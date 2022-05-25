@@ -20,17 +20,9 @@ class DUP_PRO_NoFileListException extends Exception
 
 }
 
-class DUP_PRO_EmptyFileListException extends Exception
-{
-
-}
 
 class DUP_PRO_NoDirListException extends Exception
 {
 
 }
 
-class DUP_PRO_EmptyDirListException extends Exception
-{
-
-}

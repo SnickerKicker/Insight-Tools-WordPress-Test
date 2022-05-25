@@ -9,15 +9,21 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
+use Duplicator\Installer\Core\Security;
 use Duplicator\Libs\DupArchive\DupArchiveEngine;
+use Duplicator\Libs\Snap\JsonSerialize\AbstractJsonSerializable;
 use Duplicator\Libs\Snap\SnapCode;
 use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapJson;
+use Duplicator\Libs\Snap\SnapLog;
 use Duplicator\Libs\Snap\SnapOrigFileManager;
 use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Libs\WpConfig\WPConfigTransformer;
+use Duplicator\Utils\Crypt\CryptBlowfish;
+use Duplicator\Utils\ZipArchiveExtended;
 
-class DUP_PRO_Installer
+class DUP_PRO_Installer extends AbstractJsonSerializable
 {
     const DEFAULT_INSTALLER_FILE_NAME_WITHOUT_HASH = 'installer.php';
     const CONFIG_ORIG_FILE_FOLDER_PREFIX           = 'source_site_';
@@ -27,16 +33,17 @@ class DUP_PRO_Installer
     const CONFIG_ORIG_FILE_PHPINI_ID               = 'phpini';
     const CONFIG_ORIG_FILE_WEBCONFIG_ID            = 'webconfig';
 
-    public $File;
-    public $Size             = 0;
+    public $File = '';
+    public $Size = 0;
     //SETUP
-    public $OptsSecureOn;
-    public $OptsSecurePass;
-    public $OptsSkipScan;
+    public $OptsSecureOn   = ArchiveConfig::SECURE_MODE_NONE;
+    public $passowrd       = '';
+    public $OptsSecurePass = ''; // Old installer password managed before 4.5.3, 
+    public $OptsSkipScan   = false;
     //BASIC
-    public $OptsDBHost;
-    public $OptsDBName;
-    public $OptsDBUser;
+    public $OptsDBHost = '';
+    public $OptsDBName = '';
+    public $OptsDBUser = '';
     //CPANEL
     public $OptsCPNLHost     = '';
     public $OptsCPNLUser     = '';
@@ -79,6 +86,39 @@ class DUP_PRO_Installer
         $this->origFileManger = null;
     }
 
+    /**
+     * Return serialize data for json encode
+     *
+     * @return array
+     */
+    public function __serialize()
+    {
+        $data = get_object_vars($this);
+        foreach (['origFileManger', 'Package', 'configTransformer'] as $removeProp) {
+            unset($data[$removeProp]);
+        }
+        $data['OptsSecurePass'] = ''; // empty old password
+        $data['passowrd'] = CryptBlowfish::encrypt($data['passowrd'], null, true);
+
+        return $data;
+    }
+
+    /**
+     * Called after json decode
+     *
+     * @return void
+     */
+    public function __wakeup()
+    {
+        if (strlen($this->OptsSecurePass) > 0) {
+            $this->passowrd = base64_decode($this->OptsSecurePass);
+        } else if (strlen($this->passowrd) > 0) {
+            $this->passowrd = CryptBlowfish::decrypt($this->passowrd, null, true);
+        }
+
+        $this->OptsSecurePass = '';
+    }
+
     public function get_safe_filepath()
     {
         $file_path = apply_filters('duplicator_pro_installer_file_path', SnapIO::safePath(DUPLICATOR_PRO_SSDIR_PATH . "/{$this->File}"));
@@ -93,6 +133,15 @@ class DUP_PRO_Installer
     public function get_url()
     {
         return DUPLICATOR_PRO_SSDIR_URL . "/{$this->File}";
+    }
+
+    /**
+     * Return true if a installer security system is enabled 
+     * 
+     * @return bool
+     */
+    public function isSecure() {
+        return $this->OptsSecureOn != ArchiveConfig::SECURE_MODE_NONE;
     }
 
     /**
@@ -152,29 +201,34 @@ HEADER;
         // $installer_contents     = file_get_contents($template_filepath);
         // $csrf_class_contents = file_get_contents($csrf_class_filepath);
 
+        $dupExpanderCoder = '';
+        $bootPath = DUPLICATOR____PATH . '/installer/dup-installer/src/Bootstrap/';
+        $dupExpanderCoder .= SnapCode::getSrcClassCode($bootPath . 'BootstrapRunner.php') . "\n";
+        $dupExpanderCoder .= SnapCode::getSrcClassCode($bootPath . 'BootstrapUtils.php') . "\n";
+        $dupExpanderCoder .= SnapCode::getSrcClassCode($bootPath . 'BootstrapView.php') . "\n";
+        $dupExpanderCoder .= SnapCode::getSrcClassCode($bootPath . 'LogHandler.php') . "\n";
+        $dupExpanderCoder .= SnapCode::getSrcClassCode(DUPLICATOR____PATH . '/installer/dup-installer/src/Utils/SecureCsrf.php') . "\n";
+
         if ($this->Package->build_progress->current_build_mode == DUP_PRO_Archive_Build_Mode::DupArchive) {
             $dupLib = DUPLICATOR____PATH . '/src/Libs/DupArchive/';
-            $dupExpanderCoder = '';
             $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'DupArchive.php') . "\n";
             $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'DupArchiveExpandBasicEngine.php') . "\n";
-            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveReaderDirectoryHeader.php') . "\n";
-            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveReaderFileHeader.php') . "\n";
-            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveReaderGlobHeader.php') . "\n";
-            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveReaderHeader.php') . "\n";
-            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveHeaderU.php') . "\n";
+            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/AbstractDupArchiveHeader.php') . "\n";
+            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveDirectoryHeader.php') . "\n";
+            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveFileHeader.php') . "\n";
+            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveGlobHeader.php') . "\n";
+            $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Headers/DupArchiveHeader.php') . "\n";
             $dupExpanderCoder .= SnapCode::getSrcClassCode($dupLib . 'Info/DupArchiveExpanderInfo.php') . "\n";
             if (strlen($dupExpanderCoder) == 0) {
                 DUP_PRO_Log::error(DUP_PRO_U::__('Error reading DupArchive expander'), DUP_PRO_U::__('Error reading DupArchive expander'), false);
                 return false;
             }
-        } else {
-            $dupExpanderCoder = '';
         }
 
-        $search_array           = array('@@ARCHIVE@@', '@@VERSION@@', '@@ARCHIVE_SIZE@@', '@@PACKAGE_HASH@@', '@@SECONDARY_PACKAGE_HASH@@', '@@DUPARCHIVE_MINI_EXPANDER@@');
+        $search_array           = array('#@@DUP_INSTALLER_CLASSES_EXPANDER@@#', '@@ARCHIVE@@', '@@VERSION@@', '@@ARCHIVE_SIZE@@', '@@PACKAGE_HASH@@', '@@SECONDARY_PACKAGE_HASH@@');
         $package_hash           = $this->Package->get_package_hash();
         $secondary_package_hash = $this->Package->getSecondaryPackageHash();
-        $replace_array          = array($this->Package->Archive->File, DUPLICATOR_PRO_VERSION, @filesize($archive_filepath), $package_hash, $secondary_package_hash, $dupExpanderCoder);
+        $replace_array          = array($dupExpanderCoder, $this->Package->Archive->File, DUPLICATOR_PRO_VERSION, @filesize($archive_filepath), $package_hash, $secondary_package_hash);
         $installer_contents     = str_replace($search_array, $replace_array, $installer_contents);
         if (@file_put_contents($installer_filepath, $installer_contents) === false) {
             DUP_PRO_Log::error(DUP_PRO_U::__('Error writing installer contents'), DUP_PRO_U::__("Couldn't write to $installer_filepath"), false);
@@ -182,8 +236,7 @@ HEADER;
         }
 
         if ($success) {
-            $storePath  = "{$this->Package->StorePath}/{$this->File}";
-            $this->Size = @filesize($storePath);
+            $this->Size = @filesize($installer_filepath);
         }
 
         return $success;
@@ -207,8 +260,6 @@ HEADER;
         $archive_config_filepath = SnapIO::safePath(DUPLICATOR_PRO_SSDIR_PATH_TMP) . "/{$this->Package->NameHash}_archive.txt";
         $ac                      = new DUP_PRO_Archive_Config();
         $extension               = strtolower($this->Package->Archive->Format);
-        $hasher                  = new DUP_PRO_PasswordHash(8, false);
-        $pass_hash               = $hasher->HashPassword($this->Package->Installer->OptsSecurePass);
 
         //READ-ONLY: COMPARE VALUES
         $ac->created     = $this->Package->Created;
@@ -237,7 +288,7 @@ HEADER;
         $ac->installer_backup_name = $this->getInstallerBackupName();
         $ac->package_name          = "{$this->Package->NameHash}_archive.{$extension}";
         $ac->package_hash          = $this->Package->get_package_hash();
-        $ac->package_notes         = $this->Package->Notes;
+        $ac->package_notes         = $this->Package->notes;
         $ac->opts_delete           = SnapJson::jsonEncode($GLOBALS['DUPLICATOR_PRO_OPTS_DELETE']);
         $ac->blogname              = sanitize_text_field(get_option('blogname'));
         $ac->wproot                = duplicator_pro_get_home_path();
@@ -264,11 +315,11 @@ HEADER;
         }
         $ac->exportOnlyDB = $this->Package->Archive->ExportOnlyDB;
         $ac->wplogin_url  = wp_login_url();
-        $ac->skipscan     = $this->Package->Installer->OptsSkipScan;
+        $ac->skipscan     = $this->OptsSkipScan;
 
         //PRE-FILLED: GENERAL
-        $ac->secure_on   = (bool) $this->Package->Installer->OptsSecureOn;
-        $ac->secure_pass = $ac->secure_on ? $pass_hash : '';
+        $ac->secure_on   = $this->OptsSecureOn;
+        $ac->secure_pass = $ac->secure_on ? Security::passwordHash($this->passowrd) : '';
 
         //MULTISITE
         $ac->mu_mode        = DUP_PRO_MU::getMode();
@@ -306,48 +357,48 @@ HEADER;
     private function getPrefillParams()
     {
         $result = array();
-        if (strlen($this->Package->Installer->OptsDBHost) > 0) {
-            $result['dbhost'] = array('value' => $this->Package->Installer->OptsDBHost);
+        if (strlen($this->OptsDBHost) > 0) {
+            $result['dbhost'] = array('value' => $this->OptsDBHost);
         }
 
-        if (strlen($this->Package->Installer->OptsDBName) > 0) {
-            $result['dbname'] = array('value' => $this->Package->Installer->OptsDBName);
+        if (strlen($this->OptsDBName) > 0) {
+            $result['dbname'] = array('value' => $this->OptsDBName);
         }
 
-        if (strlen($this->Package->Installer->OptsDBUser) > 0) {
-            $result['dbuser'] = array('value' => $this->Package->Installer->OptsDBUser);
+        if (strlen($this->OptsDBUser) > 0) {
+            $result['dbuser'] = array('value' => $this->OptsDBUser);
         }
 
-        if (filter_var($this->Package->Installer->OptsCPNLEnable, FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var($this->OptsCPNLEnable, FILTER_VALIDATE_BOOLEAN)) {
             $result['view_mode'] = array('value' => 'cpnl');
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLDBAction) > 0) {
-            $result['cpnl-dbaction'] = array('value' => $this->Package->Installer->OptsCPNLDBAction);
+        if (strlen($this->OptsCPNLDBAction) > 0) {
+            $result['cpnl-dbaction'] = array('value' => $this->OptsCPNLDBAction);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLHost) > 0) {
-            $result['cpnl-host'] = array('value' => $this->Package->Installer->OptsCPNLHost);
+        if (strlen($this->OptsCPNLHost) > 0) {
+            $result['cpnl-host'] = array('value' => $this->OptsCPNLHost);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLUser) > 0) {
-            $result['cpnl-user'] = array('value' => $this->Package->Installer->OptsCPNLUser);
+        if (strlen($this->OptsCPNLUser) > 0) {
+            $result['cpnl-user'] = array('value' => $this->OptsCPNLUser);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLPass) > 0) {
-            $result['cpnl-pass'] = array('value' => $this->Package->Installer->OptsCPNLPass);
+        if (strlen($this->OptsCPNLPass) > 0) {
+            $result['cpnl-pass'] = array('value' => $this->OptsCPNLPass);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLDBHost) > 0) {
-            $result['cpnl-dbhost'] = array('value' => $this->Package->Installer->OptsCPNLDBHost);
+        if (strlen($this->OptsCPNLDBHost) > 0) {
+            $result['cpnl-dbhost'] = array('value' => $this->OptsCPNLDBHost);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLDBName) > 0) {
-            $result['cpnl-dbname-txt'] = array('value' => $this->Package->Installer->OptsCPNLDBName);
+        if (strlen($this->OptsCPNLDBName) > 0) {
+            $result['cpnl-dbname-txt'] = array('value' => $this->OptsCPNLDBName);
         }
 
-        if (strlen($this->Package->Installer->OptsCPNLDBUser) > 0) {
-            $result['cpnl-dbuser-txt'] = array('value' => $this->Package->Installer->OptsCPNLDBUser);
+        if (strlen($this->OptsCPNLDBUser) > 0) {
+            $result['cpnl-dbuser-txt'] = array('value' => $this->OptsCPNLDBUser);
         }
 
         return $result;
@@ -373,37 +424,37 @@ HEADER;
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/installer/dup-installer',
-            'archivePath' => '/',
+            'archivePath' => 'dup-installer',
             'label'       => 'dup installer folder'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/src/Libs/Snap',
-            'archivePath' => 'dup-installer/libs/',
+            'archivePath' => 'dup-installer/libs/Snap',
             'label'       => 'dup snaplib folder'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/src/Libs/DupArchive',
-            'archivePath' => 'dup-installer/libs/',
+            'archivePath' => 'dup-installer/libs/DupArchive',
             'label'       => 'dup snaplib folder'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/src/Libs/WpConfig',
-            'archivePath' => 'dup-installer/libs/',
+            'archivePath' => 'dup-installer/libs/WpConfig',
             'label'       => 'lib config folder'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/src/Libs/Certificates',
-            'archivePath' => 'dup-installer/libs/',
+            'archivePath' => 'dup-installer/libs/Certificates',
             'label'       => 'SSL certificates'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/vendor/requests',
-            'archivePath' => 'dup-installer/vendor/',
+            'archivePath' => 'dup-installer/vendor/requests',
             'label'       => 'Requests library'
         );
 
@@ -415,19 +466,19 @@ HEADER;
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/assets/js/popper',
-            'archivePath' => 'dup-installer/assets/js/',
+            'archivePath' => 'dup-installer/assets/js/popper',
             'label'       => 'popper js'
         );
 
         $result[] = array(
             'sourcePath'  => DUPLICATOR____PATH . '/assets/js/tippy',
-            'archivePath' => 'dup-installer/assets/js/',
+            'archivePath' => 'dup-installer/assets/js/tippy',
             'label'       => 'tippy js'
         );
 
         $result[] = array(
             'sourcePath'  => $this->origFileManger->getMainFolder(),
-            'archivePath' => 'dup-installer/',
+            'archivePath' => 'dup-installer/' . basename($this->origFileManger->getMainFolder()),
             'label'       => 'original files folder'
         );
 
@@ -468,7 +519,7 @@ HEADER;
 
             $result[] = array(
                 'sourcePath'  => $addon->getAddonInstallerPath(),
-                'archivePath' => 'dup-installer/addons/',
+                'archivePath' => 'dup-installer/addons/' . basename($addon->getAddonInstallerPath()),
                 'label'       => 'addon ' . $addon->getSlug()
             );
         }
@@ -764,6 +815,8 @@ HEADER;
             require_once ABSPATH . 'wp-admin/includes/theme.php';
         }
 
+        $result = array();
+
         foreach (wp_get_themes() as $slug => $theme) {
             $result[$slug] = self::getThemeArrayData($theme);
         }
@@ -865,12 +918,7 @@ HEADER;
         }
 
         // Merge data properly
-        if (function_exists("array_replace") && version_compare(phpversion(), '5.3.0', '>=')) {
-            $brand_property = array_replace($brand_property_default, $brand_property);
-        } else {
-            $brand_property = array_merge($brand_property_default, $brand_property);
-        }
-
+        $brand_property = array_replace($brand_property_default, $brand_property);
         return $brand_property;
     }
 
@@ -963,22 +1011,32 @@ HEADER;
     private function dupArchiveAddExtra()
     {
 
-        $logger = new DUP_PRO_Dup_Archive_Logger();
+        $logger = new \Duplicator\Package\Create\DupArchive\Logger();
         DupArchiveEngine::init($logger, null);
 
         $archivePath = $this->getArchiveFullPath();
         $extraPoistion = filesize($archivePath);
 
+        $password = $this->Package->Archive->getArchivePassword();
+
         foreach ($this->getExtraFilesLists() as $extraItem) {
             if (is_dir($extraItem['sourcePath'])) {
-                $basePath = dirname($extraItem['sourcePath']);
-                $destPath = ltrim(trailingslashit($extraItem['archivePath']), '\\/');
-                $result   = DupArchiveEngine::addDirectoryToArchiveST($archivePath, $extraItem['sourcePath'], $basePath, true, $destPath);
-
+                $result   = DupArchiveEngine::addDirectoryToArchiveST(
+                    $archivePath, 
+                    $extraItem['sourcePath'], 
+                    $extraItem['archivePath'], 
+                    $password, 
+                    true
+                );
                 $this->numFilesAdded += $result->numFilesAdded;
                 $this->numDirsAdded  += $result->numDirsAdded;
             } else {
-                DupArchiveEngine::addRelativeFileToArchiveST($archivePath, $extraItem['sourcePath'], $extraItem['archivePath']);
+                DupArchiveEngine::addRelativeFileToArchiveST(
+                    $archivePath, 
+                    $extraItem['sourcePath'], 
+                    $extraItem['archivePath'], 
+                    $password
+                );
                 $this->numFilesAdded++;
             }
         }
@@ -986,7 +1044,14 @@ HEADER;
         // store extra files position
         $src = json_encode(array(DupArchiveEngine::EXTRA_FILES_POS_KEY => $extraPoistion));
         $src .= str_repeat("\0", DupArchiveEngine::INDEX_FILE_SIZE - strlen($src));
-        DupArchiveEngine::replaceFileContent($archivePath, $src, DupArchiveEngine::INDEX_FILE_NAME, 0, 3000);
+        DupArchiveEngine::replaceFileContent(
+            $archivePath, 
+            $src, 
+            DupArchiveEngine::INDEX_FILE_NAME, 
+            $password,
+            0, 
+            3000
+        );
 
         return true;
     }
@@ -995,13 +1060,16 @@ HEADER;
      *
      * @return boolean
      * @throws \Exception
-     */
+     */ 
     private function zipArchiveAddExtra()
     {
-        $zipArchive   = new ZipArchive();
-        $isCompressed = $this->Package->build_progress->current_build_compression;
+        $zipArchive   = new ZipArchiveExtended($this->getArchiveFullPath());
+        $zipArchive->setCompressed($this->Package->build_progress->current_build_compression);
+        if ($this->Package->Archive->isArchiveEncrypt()) {
+            $zipArchive->setEncrypt(true, $this->Package->Archive->getArchivePassword());
+        }
 
-        if ($zipArchive->open($this->getArchiveFullPath(), ZipArchive::CREATE) !== true) {
+        if ($zipArchive->open() !== true) {
             throw new \Exception("Couldn't open zip archive ");
         }
 
@@ -1009,13 +1077,9 @@ HEADER;
 
         foreach ($this->getExtraFilesLists() as $extraItem) {
             if (is_dir($extraItem['sourcePath'])) {
-                if (!DUP_PRO_Zip_U::addDirWithZipArchive($zipArchive, $extraItem['sourcePath'], true, $extraItem['archivePath'], $isCompressed)) {
-                    throw new \Exception('INSTALLER FILES: zip add ' . $extraItem['label'] . ' folder error on folder ' . $extraItem['sourcePath']);
-                }
+                $zipArchive->addDir($extraItem['sourcePath'], $extraItem['archivePath']);
             } else {
-                if (!DUP_PRO_Zip_U::addFileToZipArchive($zipArchive, $extraItem['sourcePath'], $extraItem['archivePath'], $isCompressed)) {
-                    throw new \Exception('INSTALLER FILES: zip add ' . $extraItem['label'] . ' file error on file ' . $extraItem['sourcePath']);
-                }
+                $zipArchive->addFile($extraItem['sourcePath'], $extraItem['archivePath']);
             }
         }
 
@@ -1081,7 +1145,6 @@ HEADER;
      */
     private function shellZipAddExtra()
     {
-        $isCompressed   = $this->Package->build_progress->current_build_compression;
         $tmpExtraFolder = SnapIO::safePath(DUPLICATOR_PRO_SSDIR_PATH_TMP) . '/extras/';
 
         if (file_exists($tmpExtraFolder)) {
@@ -1095,11 +1158,7 @@ HEADER;
           throw new \Exception("Error creating extras directory, Couldn't create $tmpDupInstallerPath");
           }* */
         foreach ($this->getExtraFilesLists() as $extraItem) {
-            if (is_dir($extraItem['sourcePath'])) {
-                $destPath = $tmpExtraFolder . trailingslashit($extraItem['archivePath']) . basename($extraItem['sourcePath']);
-            } else {
-                $destPath = $tmpExtraFolder . $extraItem['archivePath'];
-            }
+            $destPath = $tmpExtraFolder . $extraItem['archivePath'];
 
             if (!wp_mkdir_p(dirname($destPath))) {
                 throw new \Exception("Error creating extras directory, Couldn't create " . dirname($destPath));
@@ -1111,12 +1170,17 @@ HEADER;
         }
 
         //-- STAGE 1 ADD
-        $compression_parameter = DUP_PRO_Shell_U::getCompressionParam($isCompressed);
-        $command               = 'cd ' . escapeshellarg(SnapIO::safePath($tmpExtraFolder));
-        $command               .= ' && ' . escapeshellcmd(DUP_PRO_Zip_U::getShellExecZipPath()) . " $compression_parameter" . ' -g -rq ';
-        $command               .= escapeshellarg($this->getArchiveFullPath()) . ' ./* ./.[^.]*';
-        DUP_PRO_LOG::trace("Executing Shell Exec Zip Stage 1 to add extras: $command");
-        if (($stderr                = shell_exec($command)) != '') {
+        $params = DUP_PRO_Shell_U::getCompressionParam($this->Package->build_progress->current_build_compression);
+        if (strlen($this->Package->Archive->getArchivePassword()) > 0 ) {
+            $params .= ' --password ' . escapeshellarg($this->Package->Archive->getArchivePassword());
+        }
+        $params .= ' -g -rq';
+
+        $command  = 'cd ' . escapeshellarg(SnapIO::safePath($tmpExtraFolder));
+        $command .= ' && ' . escapeshellcmd(DUP_PRO_Zip_U::getShellExecZipPath()) . ' ' . $params . ' ';
+        $command .= escapeshellarg($this->getArchiveFullPath()) . ' ./* ./.[^.]*';
+        DUP_PRO_LOG::infoTrace("SHELL COMMAND ADD EXTRAS: $command");
+        if (($stderr = shell_exec($command)) != '') {
             throw new \Exception("Error excecuting shell command: " . $command . ' MSG: ' . $stderr);
         }
 
@@ -1142,8 +1206,10 @@ HEADER;
         $filesToValidate = $this->getInstallerPathsForIntegrityCheck();
         DUP_PRO_Log::infoTrace('CHECK FILES ' . \Duplicator\Libs\Snap\SnapLog::v2str($filesToValidate));
 
+        $params = '-Z1';
+        
         // Verify the essential extras got in there
-        $extraCountString = "unzip -Z1 '" . $this->getArchiveFullPath() . "' | grep '^\(" . implode("\|", $filesToValidate) . "\)' | wc -l";
+        $extraCountString = "unzip ". $params . ' ' . escapeshellarg($this->getArchiveFullPath()) . " | grep '^\(" . implode("\|", $filesToValidate) . "\)' | wc -l";
         DUP_PRO_LOG::info("Executing extra count string $extraCountString");
         $extraCount       = DUP_PRO_Shell_U::runAndGetResponse($extraCountString, 1);
         if (is_numeric($extraCount)) {
@@ -1223,8 +1289,8 @@ HEADER;
             if (is_file($extraItem['sourcePath'])) {
                 $filesToValidate[] = $extraItem['archivePath'];
             } else {
-                if (file_exists(trailingslashit($extraItem['sourcePath']) . '/index.php')) {
-                    $filesToValidate[] = ltrim(trailingslashit($extraItem['archivePath']), '\\/') . basename($extraItem['sourcePath']) . '/index.php';
+                if (file_exists(trailingslashit($extraItem['sourcePath']) . 'index.php')) {
+                    $filesToValidate[] = ltrim(trailingslashit($extraItem['archivePath']), '\\/') . 'index.php';
                 } else {
                     // SKIP CHECK
                 }

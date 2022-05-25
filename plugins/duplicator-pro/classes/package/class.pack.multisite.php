@@ -12,6 +12,18 @@ class DUP_PRO_Multisite
 
     public $FilterSites = array();
     protected $tablesFilters = null;
+
+    /**
+     * Filter props on json encode
+     *
+     * @return strng[]
+     */
+    public function __sleep()
+    {
+        $props = array_keys(get_object_vars($this));
+        return array_diff($props, array('tablesFilters'));
+    }
+
     public function getDirsToFilter()
     {
         if (!empty($this->FilterSites)) {

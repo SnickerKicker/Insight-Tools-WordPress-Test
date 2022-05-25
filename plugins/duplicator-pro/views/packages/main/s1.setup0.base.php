@@ -5,6 +5,7 @@ defined("ABSPATH") or die("");
 
 use Duplicator\Controllers\PackagesPageController;
 use Duplicator\Core\Controllers\ControllersManager;
+use Duplicator\Libs\Snap\JsonSerialize\JsonSerialize;
 
 $is_freelancer_plus = \Duplicator\Addons\ProBase\License\License::isFreelancer();
 
@@ -29,6 +30,7 @@ $dup_tests = DUP_PRO_Server::getRequirments();
 if ($dup_tests['Success'] != true) {
     DUP_PRO_LOG::traceObject('Requirements', $dup_tests);
 }
+$templates = DUP_PRO_Package_Template_Entity::get_all(true); 
 
 $default_name1 = DUP_PRO_Package::get_default_name();
 $default_name2 = DUP_PRO_Package::get_default_name(false);
@@ -171,12 +173,14 @@ $form_action_url = ControllersManager::getMenuLink(
             <select data-parsley-ui-enabled="false" onChange="DupPro.Pack.EnableTemplate();" name="template_id" id="template_id" aria-label="Prefill option with selected template">
                 <option value="<?php echo intval($manual_template->id); ?>"><?php echo '[' . DUP_PRO_U::esc_html__('Unassigned') . ']' ?></option>
                 <?php
-                    $templates = DUP_PRO_Package_Template_Entity::get_all();
                 if (count($templates) == 0) {
                     $no_templates = __('No Templates');
                     echo "<option value='-1'>$no_templates</option>";
                 } else {
                     foreach ($templates as $template) {
+                        if ($template->is_manual) {
+                            continue;
+                        }
                         echo "<option value='{$template->id}'>{$template->name}</option>";
                     }
                 }
@@ -213,18 +217,7 @@ refresh page in-case any filters where set while on the scanner page -->
 <script>
 jQuery(function($)
 {
-    <?php
-        $template_array = array();
-        $templates = DUP_PRO_Package_Template_Entity::get_all(true);
-    foreach ($templates as $template) {
-        $template->installer_opts_secure_pass = base64_decode($template->installer_opts_secure_pass);
-        $json = json_encode($template);
-        $template_array[] = "\t\t{$json}";
-    }
-        $template_array = join(",\r\n\r\n", $template_array);
-        echo "var packageTemplates = [\r\n{$template_array}\r\n\t];";
-    ?>
-
+    var packageTemplates = <?php echo JsonSerialize::serialize($templates, JSON_PRETTY_PRINT | JsonSerialize::JSON_SERIALIZE_SKIP_CLASS_NAME); ?>
 
     DupPro.Pack.BeforeSubmit = function(){
         $('#mu-exclude option').each(function(){
@@ -300,9 +293,10 @@ jQuery(function($)
             $("#cpnl-host").val(selectedTemplate.installer_opts_cpnl_host);
             $("#cpnl-user").val(selectedTemplate.installer_opts_cpnl_user);
 
-            $("#secure-on").prop("checked", selectedTemplate.installer_opts_secure_on);
+            $('.secure-on-input-wrapper input').prop("checked", false);
+            $('.secure-on-input-wrapper input[value=' + selectedTemplate.installer_opts_secure_on + ']:enabled').prop("checked", true);
             $("#skipscan").prop("checked", selectedTemplate.installer_opts_skip_scan);
-            $("#secure-pass").val(selectedTemplate.installer_opts_secure_pass);
+            $("#secure-pass").val(selectedTemplate.installerPassowrd);
             $("#cpnl-dbaction").selectOption(selectedTemplate.installer_opts_cpnl_db_action);
             $("#cpnl-dbhost").val(selectedTemplate.installer_opts_cpnl_db_host);
             $("#cpnl-dbname").val(selectedTemplate.installer_opts_cpnl_db_name);
@@ -417,7 +411,7 @@ jQuery(document).ready(function ($) {
         $('#dpro-template-specific-area').show(0);
         DupPro.Pack.PopulateCurrentTemplate();
         //DupPro.Pack.ToggleInstallerPassword();
-        DupPro.Pack.EnableInstallerPassword();
+        DupPro.EnableInstallerPassword();
         DupPro.Pack.ToggleFileFilters();
         DupPro.Pack.ToggleDBFilters();
         DupPro.Pack.ToggleNoPrefixTables();

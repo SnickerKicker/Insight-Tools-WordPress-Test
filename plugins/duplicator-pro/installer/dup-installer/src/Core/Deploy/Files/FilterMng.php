@@ -3,6 +3,7 @@
 namespace Duplicator\Installer\Core\Deploy\Files;
 
 use DUP_PRO_Extraction;
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Libs\Snap\SnapIO;
@@ -10,7 +11,6 @@ use Duplicator\Libs\Snap\SnapWP;
 use DUPX_ArchiveConfig;
 use DUPX_InstallerState;
 use DUPX_Package;
-use DUPX_Security;
 use DUPX_Server;
 use Exception;
 
@@ -189,7 +189,7 @@ class FilterMng
     public static function getRemoveFilters(Filters $baseFilters = null)
     {
         $archiveConfig = DUPX_ArchiveConfig::getInstance();
-        $security      = DUPX_Security::getInstance();
+        $security      = Security::getInstance();
 
         $result = new Filters();
         if (!is_null($baseFilters)) {

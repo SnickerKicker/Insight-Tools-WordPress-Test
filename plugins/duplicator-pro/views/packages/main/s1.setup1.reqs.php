@@ -79,7 +79,7 @@ SYSTEM REQUIREMENTS -->
                         </tr>   
                     </table>
                     <small>
-                        <?php DUP_PRO_U::esc_html_e("PHP versions 5.3.8+ including the listed functions are required for the plugin to create a package. For additional information see our online technical FAQs."); ?>
+                        <?php DUP_PRO_U::esc_html_e("PHP versions " . DUPLICATOR_PRO_PHP_MINIMUM_VERSION . "+ including the listed functions are required for the plugin to create a package. For additional information see our online technical FAQs."); ?>
                     </small>
                 </div>
             </div>      

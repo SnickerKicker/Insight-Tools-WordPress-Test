@@ -243,7 +243,7 @@ class ParamFormTables extends ParamForm
         // all tables abaliable have to exists in list
         foreach ($avaiableTables as $avaibleTable) {
             if (!in_array($avaibleTable, $validateTables)) {
-                Log::info('AVAIABLE ' . $avaibleTable . ' ISN\'T IN PARAM LIST TABLE');
+                Log::info('AVAILABLE ' . $avaibleTable . ' ISN\'T IN PARAM LIST TABLE');
                 return false;
             }
         }

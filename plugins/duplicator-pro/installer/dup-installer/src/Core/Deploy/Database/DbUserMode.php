@@ -2,6 +2,7 @@
 
 namespace Duplicator\Installer\Core\Deploy\Database;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\Descriptors\ParamDescUsers;
 use Duplicator\Installer\Core\Params\Models\SiteOwrMap;
 use Duplicator\Installer\Core\Params\PrmMng;
@@ -18,7 +19,6 @@ use DUPX_InstallerState;
 use DUPX_MU;
 use DUPX_NOTICE_ITEM;
 use DUPX_NOTICE_MANAGER;
-use DUPX_Security;
 use DUPX_UpdateEngine;
 use Error;
 use Exception;
@@ -180,7 +180,7 @@ class DbUserMode extends AbstractJsonSerializable
         $dbh           = DUPX_DB_Functions::getInstance()->dbConnection();
         $overwriteData = $paramsManager->getValue(PrmMng::PARAM_OVERWRITE_SITE_DATA);
 
-        $loggedInUserId = (int) $overwriteData['loggedUser']['id'];
+        $loggedInUserId = (int) $overwriteData['loggedUser']['ID'];
 
         foreach ($this->prefixMetaMapping as $overwriteId => $prefix) {
             $where         = 'user_id != ' . $loggedInUserId;
@@ -456,7 +456,7 @@ class DbUserMode extends AbstractJsonSerializable
      */
     protected static function getCsvReportName()
     {
-        return 'dup-installer-import-report__' . DUPX_Security::getInstance()->getSecondaryPackageHash() . '.csv';
+        return 'dup-installer-import-report__' . Security::getInstance()->getSecondaryPackageHash() . '.csv';
     }
 
     /**

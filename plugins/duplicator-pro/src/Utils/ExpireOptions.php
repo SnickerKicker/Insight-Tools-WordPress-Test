@@ -4,13 +4,13 @@
  * Expire options
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
 namespace Duplicator\Utils;
 
-use Duplicator\Libs\Snap\SnapJson;
+use Duplicator\Libs\Snap\JsonSerialize\JsonSerialize;
 use Duplicator\Libs\Snap\SnapDB;
 
 final class ExpireOptions
@@ -42,7 +42,7 @@ final class ExpireOptions
             'value'  => $value
         );
 
-        return update_option(self::OPTION_PREFIX . $key, SnapJson::jsonEncode(self::$cacheOptions[$key]), true);
+        return update_option(self::OPTION_PREFIX . $key, JsonSerialize::serialize(self::$cacheOptions[$key]), true);
     }
 
     /**
@@ -51,29 +51,30 @@ final class ExpireOptions
      * If the option does not exist, does not have a value, or has expired,
      * then the return value will be false.
      *
-     * @param string $key Expire option key.
+     * @param string $key     Expire option key.
+     * @param mixed  $default Return this value if option don\'t exists os is expired
      *
      * @return mixed Value of transient.
      */
-    public static function get($key)
+    public static function get($key, $default = false)
     {
         if (!isset(self::$cacheOptions[$key])) {
             if (($option = get_option(self::OPTION_PREFIX . $key)) == false) {
                 self::$cacheOptions[$key] = self::unexistsKeyValue();
             } else {
-                self::$cacheOptions[$key] = json_decode($option, true);
+                self::$cacheOptions[$key] = JsonSerialize::unserialize($option);
             }
         }
 
         if (self::$cacheOptions[$key]['expire'] < 0) {
             // don't exists the wp-option
-            return false;
+            return $default;
         }
 
         if (self::$cacheOptions[$key]['expire'] > 0 && self::$cacheOptions[$key]['expire'] < time()) {
             // if 0 don't expire so check only if time is > 0
             self::delete($key);
-            return false;
+            return $default;
         }
 
         return self::$cacheOptions[$key]['value'];
@@ -95,7 +96,7 @@ final class ExpireOptions
             if (($option = get_option(self::OPTION_PREFIX . $key)) == false) {
                 self::$cacheOptions[$key] = self::unexistsKeyValue();
             } else {
-                self::$cacheOptions[$key] = json_decode($option, true);
+                self::$cacheOptions[$key] = JsonSerialize::unserialize($option);
             }
         }
 

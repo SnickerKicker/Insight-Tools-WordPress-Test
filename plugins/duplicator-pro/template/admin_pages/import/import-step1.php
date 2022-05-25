@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 defined("ABSPATH") or die("");
@@ -31,6 +31,8 @@ if (!ImportInstallerPageController::getInstance()->isEnabled()) {
     <?php
     return;
 }
+
+$openTab = $tplData['defSubtab'];
 
 switch ($tplData['viewMode']) {
     case ImportPageController::VIEW_MODE_ADVANCED:
@@ -85,16 +87,26 @@ $hlpUpload .= '<ul>' .
 DRAG/DROP AREA -->
 <div id="dup-pro-import-upload-tabs-wrapper" class="dup-pro-tabs-wrapper margin-bottom-2">
     <div id="dup-pro-import-mode-tab-header" class="clearfix margin-bottom-2" >
-        <div id="dup-pro-import-mode-upload-tab" class="active" data-tab-target="dup-pro-import-upload-file-tab" >
+        <div 
+            id="dup-pro-import-mode-upload-tab" 
+            class="<?php echo ($openTab == ImportPageController::L2_TAB_UPLOAD ? 'active' : ''); ?>" 
+            data-tab-target="dup-pro-import-upload-file-tab" 
+        >
             <i class="far fa-file-archive"></i> <?php _e('Import File', 'duplicator-pro'); ?>
             <sup>&nbsp;</sup>
         </div>
-        <div id="dup-pro-import-mode-remote-tab" data-tab-target="dup-pro-import-remote-file-tab" >
+        <div 
+            id="dup-pro-import-mode-remote-tab" 
+            class="<?php echo ($openTab == ImportPageController::L2_TAB_REMOTE_URL ? 'active' : ''); ?>" 
+            data-tab-target="dup-pro-import-remote-file-tab" 
+        >
             <i class="fas fa-link"></i> <?php _e('Import Link', 'duplicator-pro'); ?>
-            <sup><?php esc_html_e("beta", 'duplicator-pro'); ?></sup>
         </div>
     </div>
-    <div id="dup-pro-import-upload-file-tab" class="tab-content" >
+    <div 
+        id="dup-pro-import-upload-file-tab" 
+        class="tab-content <?php echo ($openTab == ImportPageController::L2_TAB_UPLOAD ? '' : 'no-display'); ?>" 
+    >
         <div id="dup-pro-import-upload-file" class="dup-pro-import-upload-box" ></div>
         <div class="no_display" >
             <div id="dup-pro-import-upload-file-content" class="center-xy" >
@@ -126,7 +138,10 @@ DRAG/DROP AREA -->
             </span>
         </div>
     </div>
-    <div id="dup-pro-import-remote-file-tab" class="tab-content no-display">
+    <div 
+        id="dup-pro-import-remote-file-tab" 
+        class="tab-content <?php echo ($openTab == ImportPageController::L2_TAB_REMOTE_URL ? '' : 'no-display'); ?>"
+    >
         <div class="dup-pro-import-upload-box">
             <div class="center-xy" >
                 <i class="fa fa-download fa-2x"></i>            

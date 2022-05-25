@@ -8,25 +8,13 @@ use Duplicator\Ajax\ServicesImport;
 use Duplicator\Ajax\ServicesRecovery;
 use Duplicator\Ajax\ServicesSchedule;
 use Duplicator\Ajax\ServicesStorage;
+use Duplicator\Libs\Snap\SnapDB;
+use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapJson;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Utils\ExpireOptions;
 use Duplicator\Utils\IncrementalStatusMessage;
-
-require_once(DUPLICATOR____PATH . '/lib/DropPHP/DropboxV2Client.php');
-require_once(DUPLICATOR____PATH . '/classes/net/class.u.s3.php');
-
-if (DUP_PRO_StorageSupported::isGDriveSupported()) {
-    require_once(DUPLICATOR____PATH . '/classes/net/class.u.gdrive.php');
-}
-
-if (DUP_PRO_U::PHP55()) {
-    require_once(DUPLICATOR____PATH . '/lib/phpseclib/class.phpseclib.php');
-}
-
-if (DUP_PRO_StorageSupported::isOneDriveSupported()) {
-    require_once(DUPLICATOR____PATH . '/classes/net/class.u.onedrive.php');
-}
+use Duplicator\Utils\ZipArchiveExtended;
 
 abstract class DUP_PRO_Web_Service_Execution_Status
 {
@@ -106,7 +94,8 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
 
         $this->addAjaxCall('wp_ajax_duplicator_pro_admin_notice_to_dismiss', 'admin_notice_to_dismiss');
 
-        $this->addAjaxCall('wp_ajax_duplicator_pro_download_installer', 'duplicator_pro_download_installer');
+        $this->addAjaxCall('wp_ajax_duplicator_pro_download_package_file', 'download_package_file');
+        $this->addAjaxCall('wp_ajax_nopriv_duplicator_pro_download_package_file', 'download_package_file');
     }
 
     function duplicator_pro_restore_backup_prepare_callback()
@@ -537,7 +526,7 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
             }
         } catch (Exception $e) {
             $error             = true;
-            $result['message'] = $e->getMessage();
+            $result['message'] = $e->getMessage() . "<br>\n TRACE: " . $e->getTraceAsString();
         }
 
         $result['html'] = ob_get_clean();
@@ -787,7 +776,10 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
         } catch (Error $ex) {
             $data = array(
                 'Status' =>  3,
-                'Message' =>  sprintf(DUP_PRO_U::esc_html__("Fatal Error occurred. Error message: %s"), $ex->getMessage()),
+                'Message' =>  sprintf(DUP_PRO_U::esc_html__("Fatal Error occurred. Error message: %s<br>\nTrace: %s"), 
+                    $ex->getMessage(),
+                    $ex->getTraceAsString()
+                ),
                 'File' => $ex->getFile(),
                 'Line' => $ex->getLine(),
                 'Trace' => $ex->getTrace()
@@ -1280,9 +1272,7 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
         }
     }
 
-// DROPBOX METHODS
-// <editor-fold>
-
+    // DROPBOX METHODS
     function duplicator_pro_get_storage_details()
     {
         DUP_PRO_Handler::init_error_handler();
@@ -1339,11 +1329,9 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
                 }
             }
 
-            $logDownloadInfo = $package->getPackageFileDownloadInfo(DUP_PRO_Package_File_Type::Log);
-
             $json['success']           = true;
             $json['message']           = DUP_PRO_U::__('Retrieved storage information');
-            $json['logURL']            = $logDownloadInfo["url"];
+            $json['logURL']            = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Log);
             $json['storage_providers'] = $providers;
         } catch (Exception $ex) {
             $json['success'] = false;
@@ -2282,27 +2270,41 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
         DUP_PRO_LOG::trace("enter");
         DUP_PRO_U::hasCapability('export');
 
-        $request     = stripslashes_deep($_REQUEST);
         $file_path   = DUP_PRO_LOG::getTraceFilepath();
         $backup_path = DUP_PRO_LOG::getBackupTraceFilepath();
         $zip_path    = DUPLICATOR_PRO_SSDIR_PATH . "/" . DUP_PRO_Constants::ZIPPED_LOG_FILENAME;
-        $zipped      = DUP_PRO_Zip_U::zipFile($file_path, $zip_path, true, null, true);
 
-        if ($zipped && file_exists($backup_path)) {
-            $zipped = DUP_PRO_Zip_U::zipFile($backup_path, $zip_path, false, null, true);
-        }
+        try {
+            if (file_exists($zip_path)) {
+                SnapIO::unlink($zip_path);
+            }
+            $zipArchive = new ZipArchiveExtended($zip_path);
 
-        header("Pragma: public");
-        header("Expires: 0");
-        header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        header("Cache-Control: private", false);
-        header("Content-Transfer-Encoding: binary");
+            if ($zipArchive->open() == false) {
+                throw new Exception('Can\'t open ZIP archive');
+            }
 
-        $fp = fopen($zip_path, 'rb');
+            if ($zipArchive->addFile($file_path, basename($file_path)) == false) {
+                throw new Exception('Can\'t add ZIP file ');
+            }
 
-        if (($fp !== false) && $zipped) {
+            if (file_exists($backup_path) && $zipArchive->addFile($backup_path, basename($backup_path)) == false) {
+                throw new Exception('Can\'t add ZIP file ');
+            }
+
+            $zipArchive->close();
+
+            if (($fp = fopen($zip_path, 'rb')) === false) {
+                throw new Exception('Can\'t open ZIP archive');
+            }
+
             $zip_filename = basename($zip_path);
 
+            header("Pragma: public");
+            header("Expires: 0");
+            header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+            header("Cache-Control: private", false);
+            header("Content-Transfer-Encoding: binary");
             header("Content-Type: application/octet-stream");
             header("Content-Disposition: attachment; filename=\"$zip_filename\";");
 
@@ -2318,18 +2320,13 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
 
             fclose($fp);
             @unlink($zip_path);
-        } else {
+        } catch (Exception $e) {
             header("Content-Type: text/plain");
             header("Content-Disposition: attachment; filename=\"error.txt\";");
-            if ($zipped === false) {
-                $message = "Couldn't create zip file.";
-            } else {
-                $message = "Couldn't open $file_path.";
-            }
+            $message = 'Create Log Zip error message: '.$e->getMessage();
             DUP_PRO_LOG::trace($message);
             echo esc_html($message);
         }
-
         exit;
     }
 
@@ -2686,7 +2683,7 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
     }
     private static $package_statii_data = null;
 
-    public static function statii_callback($package)
+    public static function statii_callback(DUP_PRO_Package $package)
     {
         /* @var $package DUP_PRO_Package */
         $package_status = new stdClass();
@@ -3112,14 +3109,11 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
         AjaxWrapper::json(array(__CLASS__, 'admin_notice_to_dismiss_callback'), 'duplicator_pro_admin_notice_to_dismiss', $_POST['nonce'], 'export');
     }
 
-    public function duplicator_pro_download_installer()
+    public function download_package_file()
     {
         DUP_PRO_Handler::init_error_handler();
-        check_ajax_referer('duplicator_pro_download_installer', 'nonce');
-
-        $isValid   = true;
         $inputData = filter_input_array(INPUT_GET, array(
-            'id'   => array(
+            'fileType' => array(
                 'filter'  => FILTER_VALIDATE_INT,
                 'flags'   => FILTER_REQUIRE_SCALAR,
                 'options' => array(
@@ -3132,72 +3126,49 @@ class DUP_PRO_Web_Services extends AbstractAjaxService
                 'options' => array(
                     'default' => false
                 )
+            ),
+            'token' => array(
+                'filter'  => FILTER_SANITIZE_SPECIAL_CHARS,
+                'flags'   => FILTER_REQUIRE_SCALAR,
+                'options' => array(
+                    'default' => false
+                )
             )
         ));
 
-        $packageId = $inputData['id'];
-        $hash      = $inputData['hash'];
-
-        if (!$packageId || !$hash) {
-            $isValid = false;
-        }
-
         try {
-            DUP_PRO_U::hasCapability('export', DUP_PRO_U::SECURE_ISSUE_THROW);
-
-            if (!$isValid) {
+            if (
+                $inputData['token'] === false || $inputData['hash'] === false || $inputData["fileType"] === false
+                || md5(\Duplicator\Utils\Crypt\CryptBlowfish::encrypt($inputData['hash'])) !== $inputData['token']
+                || ($package = DUP_PRO_Package::get_by_hash($inputData['hash'])) == false
+            ) {
                 throw new Exception(DUP_PRO_U::__("Invalid request."));
             }
 
-            if (($package = DUP_PRO_Package::get_by_id($packageId)) == false) {
-                throw new Exception(DUP_PRO_U::__("Invalid request."));
+            switch($inputData['fileType']) {
+                case DUP_PRO_Package_File_Type::Installer:
+                    $filePath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
+                    $fileName = $package->get_inst_download_name();
+                    break;
+                case DUP_PRO_Package_File_Type::Archive:
+                    $filePath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+                    $fileName = basename($filePath);
+                    break;
+                case DUP_PRO_Package_File_Type::Log:
+                    $filePath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Log);
+                    $fileName = basename($filePath);
+                    break;
+                default:
+                    throw new Exception(DUP_PRO_U::__("File type not supported."));
             }
 
-            if ($hash !== $package->Hash) {
-                throw new Exception(DUP_PRO_U::__("Invalid request."));
+            if ($filePath == false) {
+                throw new Exception(DUP_PRO_U::__("File don\'t exists"));
             }
 
-            $fileName = $package->get_inst_download_name();
-            $filepath = DUPLICATOR_PRO_SSDIR_PATH . '/' . apply_filters('duplicator_pro_installer_file_path', $package->get_installer_filename());
-            // Process download
-            if (!file_exists($filepath)) {
-                throw new Exception(DUP_PRO_U::__("Invalid request."));
-            }
-
-            // Clean output buffer
-            if (ob_get_level() !== 0 && @ob_end_clean() === false) {
-                @ob_clean();
-            }
-
-            header('Content-Description: File Transfer');
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $fileName . '"');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate');
-            header('Pragma: public');
-            header('Content-Length: ' . filesize($filepath));
-            flush(); // Flush system output buffer
-
-            try {
-                $fp = @fopen($filepath, 'r');
-                if (!is_resource($fp)) {
-                    throw new Exception('Fail to open the file ' . $filepath);
-                }
-                while (!feof($fp) && ($data = fread($fp, DUPLICATOR_PRO_BUFFER_DOWNLOAD_SIZE)) !== false) {
-                    echo $data;
-                }
-                @fclose($fp);
-            } catch (Exception $ex) {
-                readfile($filepath);
-            }
-            exit;
+            \Duplicator\Libs\Snap\SnapIO::serveFileForDownload($filePath, $fileName, DUPLICATOR_PRO_BUFFER_DOWNLOAD_SIZE);
         } catch (Exception $ex) {
-            // if the request is wrong wait to avoid brute force attack
-            sleep(2);
             wp_die($ex->getMessage());
         }
     }
 }
-
-// </editor-fold>
-//DO NOT ADD A CARRIAGE RETURN BEYOND THIS POINT (headers issue)!!

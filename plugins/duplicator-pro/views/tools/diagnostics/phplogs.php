@@ -101,7 +101,7 @@ if ($error) : ?>
 <table id="dpro-log-pnls">
         <tr>
             <td id="dpro-log-pnl-left">
-                <div class="name"><i class="fa fa-list-alt"></i> <?php echo esc_html($log_path); ?></div>
+                <div class="name"><i class="fas fa-file-contract fa-fw"></i> <?php echo esc_html($log_path); ?></div>
                 <div class="opts"><a href="javascript:void(0)" id="dup-options"><?php DUP_PRO_U::esc_html_e('Options'); ?> <i class="fa fa-angle-double-right"></i></a> &nbsp;</div>
                 <div id="tableContainer" class="tableContainer">
                     <table class="wp-list-table fixed striped" id="error-log">

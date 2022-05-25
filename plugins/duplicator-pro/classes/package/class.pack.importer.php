@@ -20,8 +20,10 @@ use Duplicator\Libs\Snap\SnapJson;
 use Duplicator\Addons\ProBase\License\License;
 use Duplicator\Controllers\ImportPageController;
 use Duplicator\Core\Views\TplMng;
+use Duplicator\Installer\Bootstrap\BootstrapRunner;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Libs\DupArchive\DupArchive;
+use Duplicator\Libs\DupArchive\Headers\DupArchiveHeader;
 use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Utils\PHPExecCheck;
 
@@ -33,6 +35,8 @@ class DUP_PRO_Package_Importer
 
     /** @var string */
     protected $archive = null;
+    /** @var string */
+    protected $archivePwd = '';
     /** @var string */
     protected $ext = null;
     /** @var bool */
@@ -53,8 +57,10 @@ class DUP_PRO_Package_Importer
     protected $insPathType = ''; // duplicator, home, none
 
     /**
-     *
-     * @param string $path // valid archive patch
+     * Class contructor
+     * 
+     * @param string $path Archive file path
+     * 
      * @throws Exception if file ins't valid
      */
     public function __construct($path)
@@ -77,7 +83,17 @@ class DUP_PRO_Package_Importer
         $this->hash     = self::getHashFromArchiveName($this->archive);
         $this->nameHash = self::getNameHashFromArchiveName($this->archive);
 
-        $this->initInfoObjects();
+        if (isset($_COOKIE[$this->getArchiveCookiePwd()])) {
+            $this->archivePwd = $_COOKIE[$this->getArchiveCookiePwd()];
+        }
+
+        if ($this->passwordCheck()) {
+            $this->loadInfo();
+        }
+    }
+
+    public function getArchiveCookiePwd() {
+        return 'dup_arc_pwd_' . get_current_user_id() . '_' . md5($this->archive);
     }
 
     /**
@@ -101,6 +117,9 @@ class DUP_PRO_Package_Importer
                 if ($zip->open($this->archive) !== true) {
                     throw new Exception('Can\'t open ZipArcive ' . $this->archive);
                 }
+                if (strlen($this->archivePwd)) {
+                    $zip->setPassword($this->archivePwd);
+                }
                 if (($fileContent = $zip->getFromName($relativePath)) === false) {
                     $zip->close();
                     throw new Exception('Can\'t get file ' . $relativePath . ' from archive ' . $this->archive);
@@ -108,9 +127,9 @@ class DUP_PRO_Package_Importer
                 $zip->close();
                 break;
             case 'daf':
-                $offset = ($skipToDupFolder ? DupArchive::getExtraOffset($this->archive) : 0);
+                $offset = ($skipToDupFolder ? DupArchive::getExtraOffset($this->archive, $this->archivePwd) : 0);
 
-                if (($fileContent = DupArchive::getSrcFile($this->archive, $relativePath, $offset)) === false) {
+                if (($fileContent = DupArchive::getSrcFile($this->archive, $relativePath, $this->archivePwd, $offset)) === false) {
                     throw new Exception('Can\'t get file ' . $relativePath . ' from archive ' . $this->archive);
                 }
                 break;
@@ -144,11 +163,156 @@ class DUP_PRO_Package_Importer
     }
 
     /**
+     * Return true if archive is encrypted
+     *
+     * @return bool
+     */
+    public function isEncrypted() {
+        switch ($this->ext) {
+            case 'zip':
+                $zip = new ZipArchive();
+                if ($zip->open($this->archive) !== true) {
+                    throw new Exception('Can\'t open ZipArcive ' . $this->archive);
+                }
+                if (($stats = $zip->statName('main.installer.php', ZipArchive::FL_NODIR))  == false) {
+                    throw new Exception('Formatting archive error, cannot find the file main.installer.php');
+                }
+                
+                if (isset($stats['encryption_method'])) {
+                    // Before PHP 7.2 encryption_method don't exsts
+                    $isEncrypt = ($stats['encryption_method'] > 0);
+                } else {
+                    $isEncrypt = ($zip->getFromIndex($stats['index']) === false);
+                }
+                $zip->close();
+                return $isEncrypt;
+            case 'daf':
+                return DupArchive::isEncrypted($this->archive);
+            default:
+                throw new Exception('Invalid archive extension "' . $this->ext . '"');
+        }       
+    }
+
+    /**
+     * Check if current archvie is decryptable
+     *
+     * @return bool
+     */
+    public function encryptCheck(&$errorMessage) {
+        if (!$this->isEncrypted()) {
+            return true;
+        }
+
+        switch ($this->ext) {
+            case 'zip':
+                return true;
+            case 'daf':
+                if (($result = DupArchive::isEncryptionAvaliable()) == false) {
+                    $errorMessage  = __('PHP configuration is preventing extraction of the encrypted DupArchive.', 'duplicator-pro') . '<br>';
+                    $errorMessage .= sprintf(
+                        _x(
+                            'To enable encryption extraction, ' .
+                            'contact your host and make sure they have enabled the %1$sOpenSSL PHP module%2$s.',
+                            '%1$s and %2$s represents the opening and closing HTML tags for an anchor or link',
+                            'duplicator-pro'
+                        ),
+                        '<a href="https://www.php.net/manual/en/book.openssl.php" target="_blank">',
+                        '</a>'
+                    );
+                }
+                return $result;
+            default:
+                throw new Exception('Invalid archive extension "' . $this->ext . '"');
+        } 
+    }
+
+    /**
+     * Return true if archive require password is ok
+     *
+     * @param null|string $password password to check, if null check current password
+     * 
+     * @return bool
+     */
+    public function passwordCheck($password = null) {
+        $result = false; 
+        
+        if ($password === null) {
+            $password = $this->archivePwd;
+        }
+
+        switch ($this->ext) {
+            case 'zip':
+                $zip = new ZipArchive();
+                if ($zip->open($this->archive) !== true) {
+                    throw new Exception('Can\'t open ZipArcive ' . $this->archive);
+                }
+                if (($stats = $zip->statName('main.installer.php', ZipArchive::FL_NODIR))  == false) {
+                    throw new Exception('Formatting archive error, cannot find the file main.installer.php');
+                }
+                
+                if (isset($stats['encryption_method'])) {
+                    // Before PHP 7.2 encryption_method don't exsts
+                    $isEncrypt = ($stats['encryption_method'] > 0);
+                } else {
+                    $isEncrypt = ($zip->getFromIndex($stats['index']) === false);
+                }
+
+                if (!$isEncrypt) {
+                    $result = true;
+                } else {
+                    DUP_PRO_Log::trace('Zip archive password check ' . $password);
+                    $zip->setPassword($password);
+                    if ($result = $zip->getFromIndex($stats['index'])) {
+                        DUP_PRO_Log::trace('ZIP ARCHIVE PASSWORD OK ');
+                    } else {
+                        DUP_PRO_Log::trace('ZIP ARCHIVE PASSWORD FAIL ');
+                    }
+                }
+                $zip->close();
+                break;
+            case 'daf':
+                // DUP ARCHIVE
+                if (($result = DupArchive::checkPassword($this->archive, $password)) == false) {
+                    DUP_PRO_Log::trace('DUP ARCHIVE PASSWORD OK ');
+                } else {
+                    DUP_PRO_Log::trace('DUP ARCHIVE PASSWORD FAIL ');
+                }
+                break;
+            default:
+                throw new Exception('Invalid archive extension "' . $this->ext . '"');
+        }
+
+        if ($result) {
+            $this->archivePwd = $password;
+        } else {
+            $this->notValidMessage = __('Invalid password', 'duplicator-pro');
+            $this->isValid         = false;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Set archive password to user cookie
+     *
+     * @return bool If output exists prior to calling this function, setcookie() will fail and return false. 
+     *              If setcookie() successfully runs, it will return true. This does not indicate whether the user accepted the cookie. 
+     */
+    public function updatePasswordCookie() {
+        $secure = ( 'https' === parse_url(admin_url(), PHP_URL_SCHEME) );
+        $result = setcookie($this->getArchiveCookiePwd(), $this->archivePwd, time() + HOUR_IN_SECONDS, SITECOOKIEPATH, null, $secure);
+        if ($result) {
+            $_COOKIE[$this->getArchiveCookiePwd()] = $this->archivePwd;
+        }
+        return $result;
+    }
+
+    /**
      * This function extract archive info package and read it, After initializing the information deletes the file.
      *
-     * @return void
+     * @return bool true on success, or false on failure 
      */
-    protected function initInfoObjects()
+    public function loadInfo()
     {
         try {
             $this->info    = $this->getObjectFromJson('dup-installer/dup-archive__' . $this->hash . '.txt', true);
@@ -172,6 +336,7 @@ class DUP_PRO_Package_Importer
             $this->notValidMessage = $ex->getMessage();
             $this->isValid         = false;
         }
+        return $this->isValid;
     }
 
     /**
@@ -412,10 +577,16 @@ class DUP_PRO_Package_Importer
         if ($this->isLite) {
             $queryStr = '';
         } else {
-            $queryStr = '?' . http_build_query(array(
+            $data = [
                 'archive'    => $this->archive,
                 'dup_folder' => 'dup-installer-' . $this->info->packInfo->secondaryHash
-            ));
+            ];
+
+            if (strlen($this->archivePwd) > 0) {
+                $data[BootstrapRunner::NAME_PWD] = $this->archivePwd;
+            }
+
+            $queryStr = '?' . http_build_query($data);
         }
         return $this->getInstallerFolderUrl() . '/' . $this->getInstallerName() . $queryStr;
     }
@@ -517,7 +688,8 @@ class DUP_PRO_Package_Importer
                     'wpVersion'        => $wp_version,
                     'dupLicense'       => License::getType(),
                     'loggedUser'       => array(
-                        'id'         => $currentUser->ID,
+                        'id'         => $currentUser->ID, // legacy value for old packages versions
+                        'ID'         => $currentUser->ID,
                         'user_login' => $currentUser->user_login
                     ),
                     'dbhost'           => DB_HOST,
@@ -747,14 +919,16 @@ class DUP_PRO_Package_Importer
      */
     protected function packageDupRequiredPathsCheck($paths, $skipToDupFolder = false)
     {
-        $offset = ($skipToDupFolder ? DupArchive::getExtraOffset($this->archive) : 0);
+        $offset = ($skipToDupFolder ? DupArchive::getExtraOffset($this->archive, $this->archivePwd) : 0);
 
         if (($handle = SnapIO::fopen($this->archive, 'r')) === false) {
             throw new Exception('Can\'t open DupArchive ' . $this->archive);
         }
 
+        $archiveHeader = (new DupArchiveHeader())->readFromArchive($handle, $this->archivePwd);
+
         for ($i = 0; $i < count($paths); $i++) {
-            if (DupArchive::searchPath($handle, $paths[$i], $offset) === false) {
+            if (DupArchive::searchPath($handle, $archiveHeader, $paths[$i], $offset) === false) {
                 break;
             }
         }

@@ -9,6 +9,8 @@
  *
  */
 
+use Duplicator\Installer\Core\Security;
+
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
 /**
@@ -89,7 +91,7 @@ class DUPX_Conf_Utils
     {
         static $exists = null;
         if (is_null($exists)) {
-            $exists = file_exists(DUPX_Security::getInstance()->getArchivePath());
+            $exists = file_exists(Security::getInstance()->getArchivePath());
         }
         return $exists;
     }
@@ -103,7 +105,7 @@ class DUPX_Conf_Utils
     {
         static $arcSize = null;
         if (is_null($arcSize)) {
-            $archivePath = DUPX_Security::getInstance()->getArchivePath();
+            $archivePath = Security::getInstance()->getArchivePath();
             $arcSize     = file_exists($archivePath) ? (int) @filesize($archivePath) : 0;
         }
         return $arcSize;

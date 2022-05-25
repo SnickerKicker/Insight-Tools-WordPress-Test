@@ -7,7 +7,7 @@
  * @link http://www.php-fig.org/psr/psr-2
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 

@@ -74,7 +74,7 @@ class DUPX_Validation_manager
     const CAT_DATABASE           = 'database';
     const ACTION_ON_START_NORMAL = 'normal';
     const ACTION_ON_START_AUTO   = 'auto';
-    const MIN_LEVEL_VALID        = 1; // DUPX_Validation_abstract_item::LV_HARD_WARNING, can't assign directly in php 5.3
+    const MIN_LEVEL_VALID        = DUPX_Validation_abstract_item::LV_HARD_WARNING;
 
     /**
      *

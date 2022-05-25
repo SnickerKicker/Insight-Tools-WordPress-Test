@@ -114,7 +114,7 @@
      *
      * @example
      *
-     * <script>  Duplicator.UI.Ctrl.spinner('spinner-id'); < /script>
+     * <script>  Duplicator.UI.Ctrl.Spinner('spinner-id'); < /script>
      *
      * <div id="spinner-id" class="dup-spinner">
      *     <div class="area-left">
@@ -134,36 +134,57 @@
      * </div>
      *
      */
-    Duplicator.UI.Ctrl.spinner = function(id, height='350px', width='100%') {
+    Duplicator.UI.Ctrl.Spinner = class {
 
-        var $items   = $(`#${id} > .area-data > .item`);
-        var max      = $items.length - 1;
-        var start    = $(`#${id} .item.active`).index() + 1;
+        //Setup the Object
+        constructor(id, height='350px', width='100%') {
+            this.id         = id;
+            this.height     = height;
+            this.width      = width;
+            this.items      = $(`#${id} > .area-data > .item`);
+            this.maxItems   = this.items.length - 1;
+            this.init();
+        }
 
-        /*Click Event: Left/Right */
-        $(`#${id} > .area-right, .area-left`).on('click', function() {
+        //Initilize the object for use
+        init() {
+            var id       = this.id;
+            var $items   = this.items;
+            var max      = this.maxItems
+            var start    = $(`#${id} .item.active`).index() + 1;
 
-            var index = $(`#${id} .item.active`).index();
+            /*Click Event: Left/Right */
+            $(`#${id} > .area-right, #${id} > .area-left`).on('click', function() {
 
-            //Left or Right
-            index = ($(this).hasClass('area-right'))
-                ?  (index >= max)  ? 0   : index + 1
-                :  (index === 0)   ? max : index - 1;
+                var index = $(`#${id} .item.active`).index();
 
-            $items.removeClass('active').hide();
-            $($items[index]).addClass('active').show();
+                //Left or Right
+                index = ($(this).hasClass('area-right'))
+                    ?  (index >= max)  ? 0   : index + 1
+                    :  (index === 0)   ? max : index - 1;
 
-            //Progress bar
-            $(`#${id} .num`).html(`${index + 1} of ${max + 1}`);
-            $(`#${id} progress`).val(index + 1);
-        });
+                $items.removeClass('active').hide();
+                $($items[index]).addClass('active').show();
 
-        //init
-        $(`#${id} div.area-nav progress`).attr('max', `${max + 1}`);
-        $(`#${id} div.area-nav progress`).attr('value', '1');
-        $(`#${id} div.area-nav .num`).html(`${start} of ${max + 1}`);
-        $(`#${id}.dup-spinner`).css({'height' : height, 'width' : width});
+                //Progress bar
+                $(`#${id} .num`).html(`${index + 1} of ${max + 1}`);
+                $(`#${id} progress`).val(index + 1);
+            });
+
+            //init
+            $(`#${id} div.area-nav progress`).attr('max', `${max + 1}`);
+            $(`#${id} div.area-nav progress`).attr('value', '1');
+            $(`#${id} div.area-nav .num`).html(`${start} of ${max + 1}`);
+            $(`#${id}.dup-spinner`).css({'height' : this.height, 'width' : this.width});
+        }
+
+        //Set the active panel to the index provided
+        setPanel(index) {
+            this.items.removeClass('active').hide();
+            $(this.items.get(index)).addClass('active').show();
+            $(`#${this.id} .num`).html(`${index + 1} of ${this.maxItems + 1}`);
+            $(`#${this.id} progress`).val(index + 1);
+        }
     };
-
 })(jQuery);
 </script>

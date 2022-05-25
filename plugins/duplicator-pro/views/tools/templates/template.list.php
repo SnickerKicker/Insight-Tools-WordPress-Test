@@ -7,10 +7,7 @@ defined("ABSPATH") or die("");
 
 DUP_PRO_U::hasCapability('manage_options');
 
-$nonce = wp_create_nonce('duplicator_pro_download_package_file');
-
 $nonce_action = 'duppro-template-list';
-
 $display_edit = false;
 
 if (isset($_REQUEST['action'])) {

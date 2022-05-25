@@ -112,7 +112,6 @@ a.upgrade-link {
     font-size: 12px !important;
 }
 
-
 /* UTILS CLASSES */
 
 .no_display,
@@ -128,6 +127,10 @@ a.upgrade-link {
 
 .link-style:hover {
     color: #00a0d2;
+}
+
+.widefat .link-style {
+    text-decoration: none;
 }
 
 .no-decoration {
@@ -377,6 +380,30 @@ ul.category-tabs li button {
     margin: 0;
 }
 
+.dup-tabs-opts-notice {
+    color:maroon;
+    line-height:22px;
+}
+
+.dup-tabs-opts-notice ul.dup-tabs-opts-help {
+    color:maroon;
+    line-height:22px;
+    margin:5px 0 0 40px;
+    list-style: disc;
+}
+
+.dup-tabs-opts-help {
+    font-style:italic;
+    font-size:12px;
+    margin:5px 0;
+    color:#666
+}
+
+.dup-tabs-opts-help-secure-pass {
+    font-style:italic;
+    font-size:12px;
+    color:#666;
+}
 
 /*PROGRESS BAR*/
 
@@ -991,7 +1018,8 @@ label.dup-store-lbl:hover {
 }
 
 #dpro-template-form div.dpro-template-general {
-    margin: 8px 0 10px 0
+    margin: 8px 0 10px 0;
+    font-size:14px;
 }
 
 #dpro-template-form div.dpro-template-general label {
@@ -1017,6 +1045,17 @@ textarea {
     width: 100%
 }
 
+div#dup-template-archive-panel div.tabs-panel {
+    min-height:675px;
+    padding: 20px 15px 15px 15px;
+}
+
+.dup-archive-filters-icons {
+    font-size: 13px;
+}
+.dup-archive-filters-icons > span{
+    font-weight: normal;
+}
 
 /* TEMPLATE ARCHIVE*/
 
@@ -1054,10 +1093,6 @@ textarea#_archive_filter_dirs {
     width: 100%;
     height: 165px;
     padding: 7px;
-}
-
-div.dup-template-db-area {
-    margin-top: -65px;
 }
 
 textarea#_archive_filter_files {
@@ -1130,15 +1165,6 @@ ul.category-tabs li {
     padding: 3px 30px 5px
 }
 
-div.secure-pass-area {
-    display: none
-}
-
-label.secure-pass-lbl {
-    display: inline-block;
-    width: 125px
-}
-
 div#dup-template-install-panel div.tabs-panel {
     min-height: 150px
 }
@@ -1147,14 +1173,6 @@ div#dpro-pass-toggle {
     position: relative;
     margin: 8px 0 0 0;
     width: 243px
-}
-
-input#_installer_opts_secure_pass {
-    border-radius: 4px 0 0 4px;
-    width: 217px !important;
-    min-height: auto;
-    margin: 0;
-    padding: 0 4px;
 }
 
 button.pass-toggle {
@@ -1166,14 +1184,6 @@ button.pass-toggle {
     border: 1px solid silver;
     border-radius: 0 4px 4px 0;
     cursor: pointer
-}
-
-span#dpro-install-secure-lock,
-span#dpro-install-secure-unlock {
-    color: #A62426;
-    display: none;
-    font-size: 14px;
-    vertical-align: top;
 }
 
 /* =============================
@@ -1381,6 +1391,10 @@ ul.parsley-error-list {
     margin-bottom: 10px;
 }
 
+#secure-on-parsely-error .parsley-errors-list {
+    color: maroon;
+	margin-top: 7px;  
+}
 
 /** Settings **/
 
@@ -1723,7 +1737,11 @@ h4.dup-dlg-store-names span {
     max-width: 400px;
 }
 
-div.dup-form-item span.title {
+.dup-form-item {
+    display: flex;
+}
+
+.dup-form-item > .title {
     font-size: 14px;
     min-width: 125px;
     display: inline-block;
@@ -1731,13 +1749,13 @@ div.dup-form-item span.title {
     padding: 6px 0 6px 0
 }
 
-div.dup-form-item span.input {
+.dup-form-item > .input {
     font-size: 14px;
     display: inline-block;
     padding: 6px 0 6px 0
 }
 
-div.dup-form-horiz-opts span {
+.dup-form-horiz-opts > span {
     display: inline-block;
     padding-right: 20px
 }
@@ -1857,4 +1875,30 @@ div#dup-db-filter-items-no-filters > div {
 
 .dup-pseudo-checkbox.disabled.checked::after {
     border-color: silver;
+}
+
+.dup-password-toggle {
+    border-radius: 4px;
+    border: 1px solid silver;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+}
+
+.dup-password-toggle .parsley-errors-list {
+	display: block;
+	position: absolute;
+	top: 7px;
+	left: 10px;
+	z-index: 10;
+}
+
+.dup-password-toggle input {
+    border: 0 none;
+    margin: 0;
+}
+
+.dup-password-toggle button {
+    border: 0 none;
+    margin: 0;
 }

@@ -10,7 +10,7 @@
  *
  */
 
-defined('ABSPATH') || defined('DUPXABSPATH') || exit;
+use Duplicator\Libs\Snap\SnapWP;
 
 class DUP_PRO_Flywheel_Host implements DUP_PRO_Host_interface
 {
@@ -33,7 +33,7 @@ class DUP_PRO_Flywheel_Host implements DUP_PRO_Host_interface
 
     public static function getFlywheelMainPluginPaht()
     {
-        return DUP_PRO_Archive::getArchiveListPaths('home') . '/.fw-config.php';
+        return trailingslashit(SnapWP::getHomePath()) . '.fw-config.php';
     }
 
     public static function filterPluginFile($globalsFileFilters)

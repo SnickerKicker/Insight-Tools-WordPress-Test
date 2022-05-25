@@ -15,8 +15,11 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Package\Recovery\RecoveryStatus;
+use Duplicator\Package\SettingsUtils;
+use Duplicator\Utils\Crypt\CryptBlowfish;
 
 class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
 {
@@ -41,7 +44,8 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
     //INSTALLER
     //Setup
     public $installer_opts_secure_on      = 0;  // Enable Password Protection
-    public $installer_opts_secure_pass    = '';  // Password Protection password
+    public $installer_opts_secure_pass    = ''; // Old password Protection password, deprecated
+    public $installerPassowrd             = ''; // Password Protection password
     public $installer_opts_skip_scan      = 0;  // Skip Scanner
     //Basic DB
     public $installer_opts_db_host        = '';   // MySQL Server Host
@@ -101,7 +105,7 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
         //INSTALLER
         //Setup
         $instance->installer_opts_secure_on     = $template_data->installer_opts_secure_on;  // Enable Password Protection
-        $instance->installer_opts_secure_pass   = $template_data->installer_opts_secure_pass;  // Password Protection password
+        $instance->installerPassowrd            = $template_data->installerPassowrd;  // Password Protection password
         $instance->installer_opts_skip_scan     = $template_data->installer_opts_skip_scan;  // Skip Scanner
         //Basic DB
         $instance->installer_opts_db_host       = $template_data->installer_opts_db_host;   // MySQL Server Host
@@ -146,6 +150,49 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
         }
     }
 
+    /**
+     * Return serialized data to store in database
+     *
+     * @return array
+     */
+    protected function getSerializedData() {
+        $data = parent::getSerializedData();
+
+        /*if ($data['installer_opts_secure_on'] == ArchiveConfig::SECURE_MODE_ARC_ENCRYPT && !SettingsUtils::isArchiveEncryptionAvaiable()) {
+            $data['installer_opts_secure_on'] = ArchiveConfig::SECURE_MODE_INST_PWD;
+        }*/
+        $data['installer_opts_secure_pass'] = '';
+        $data['installerPassowrd'] = CryptBlowfish::encrypt($this->installerPassowrd, null, true);
+
+        return $data;
+    }
+
+    /**
+     * Get all entities from type
+     *
+     * @param stdClass $row        database row data
+     * @param string   $class      class name
+     * @param string   $table_name table name
+     * 
+     * @return object
+     */
+    protected static function getInstanceByRow($row, $class, $table_name) {
+        /** @var self $obj */
+        $obj = parent::getInstanceByRow($row, $class, $table_name);
+        /*if ($obj->installer_opts_secure_on == ArchiveConfig::SECURE_MODE_ARC_ENCRYPT && !SettingsUtils::isArchiveEncryptionAvaiable()) {
+            $obj->installer_opts_secure_on = ArchiveConfig::SECURE_MODE_INST_PWD;
+        }*/
+
+        if (strlen($obj->installer_opts_secure_pass) > 0) {
+            $obj->installerPassowrd = base64_decode($obj->installer_opts_secure_pass);
+        } else if (strlen($obj->installerPassowrd) > 0) {
+            $obj->installerPassowrd = CryptBlowfish::decrypt($obj->installerPassowrd, null, true);
+        }
+        $obj->installer_opts_secure_pass = '';
+
+        return $obj;
+    }
+
     public static function create_manual()
     {
         if (self::get_manual_template() == null) {
@@ -179,7 +226,7 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
                 $template->installer_opts_db_name     = $temp_package->Installer->OptsDBName;
                 $template->installer_opts_db_user     = $temp_package->Installer->OptsDBUser;
                 $template->installer_opts_secure_on   = $temp_package->Installer->OptsSecureOn;
-                $template->installer_opts_secure_pass = $temp_package->Installer->OptsSecurePass;
+                $template->installerPassowrd          = $temp_package->Installer->passowrd;
                 $template->installer_opts_skip_scan   = $temp_package->Installer->OptsSkipScan;
 
                 /* @var $global DUP_PRO_Global_Entity */
@@ -278,12 +325,19 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
         $this->set_checkbox_variable($post, 'archive_filter_names', 'archive_filter_names');
 
         //Installer
-        $this->set_checkbox_variable($post, '_installer_opts_secure_on', 'installer_opts_secure_on');
+        $this->installer_opts_secure_on = filter_input(INPUT_POST, 'secure-on' , FILTER_VALIDATE_INT);
+        switch ($this->installer_opts_secure_on) {
+            case ArchiveConfig::SECURE_MODE_NONE:
+            case ArchiveConfig::SECURE_MODE_INST_PWD:
+            case ArchiveConfig::SECURE_MODE_ARC_ENCRYPT:
+                break;
+            default:
+                throw new Exception(__('Select valid secure mode'));
+        }
         $this->set_checkbox_variable($post, '_installer_opts_skip_scan', 'installer_opts_skip_scan');
         $this->set_checkbox_variable($post, 'installer_opts_cpnl_enable', 'installer_opts_cpnl_enable');
 
-        $post_installer_opts_secure_pass  = sanitize_text_field($post['_installer_opts_secure_pass']);
-        $this->installer_opts_secure_pass = base64_encode($post_installer_opts_secure_pass);
+        $this->installerPassowrd = SnapUtil::sanitizeNSCharsNewline($post['secure-pass']);
 
         // Replaces any \n \r or \n\r from the package notes
         $post['notes']  = SnapUtil::sanitizeNSCharsNewlineTrim($post['notes']);
@@ -291,12 +345,12 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
         parent::set_post_variables($post);
     }
 
-    private function set_checkbox_variable($post, $key, $name)
+    private function set_checkbox_variable($post, $inputName, $propName)
     {
-        if (isset($post[$key])) {
-            $this->$name = 1;
+        if (isset($post[$inputName])) {
+            $this->$propName = 1;
         } else {
-            $this->$name = 0;
+            $this->$propName = 0;
         }
     }
 
@@ -317,10 +371,10 @@ class DUP_PRO_Package_Template_Entity extends DUP_PRO_JSON_Entity_Base
 
 
         $this->installer_opts_secure_on     = $source_template->installer_opts_secure_on;
-        $this->installer_opts_secure_pass   = $source_template->installer_opts_secure_pass;
+        $this->installerPassowrd            = $source_template->installerPassowrd;
         $this->database_filter_on           = $source_template->database_filter_on;
         $this->databasePrefixFilter         = $source_template->databasePrefixFilter;
-        $this->databasePrefixSubFilter         = $source_template->databasePrefixSubFilter;
+        $this->databasePrefixSubFilter      = $source_template->databasePrefixSubFilter;
         $this->database_filter_tables       = $source_template->database_filter_tables;
         $this->database_compatibility_modes = $source_template->database_compatibility_modes;
 

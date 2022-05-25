@@ -2,8 +2,6 @@
 
 defined("ABSPATH") or die("");
 
-require_once(DUPLICATOR____PATH . '/src/Package/Recovery/RecoveryStatus.php');
-
 use Duplicator\Controllers\ToolsPageController;
 use Duplicator\Core\Controllers\ControllersManager;
 

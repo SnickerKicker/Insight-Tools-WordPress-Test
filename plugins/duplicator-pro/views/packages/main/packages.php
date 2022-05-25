@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -11,10 +11,8 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
 use Duplicator\Core\Views\TplMng;
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php');
 require_once(DUPLICATOR____PATH . '/classes/class.package.pagination.php');
 require_once(DUPLICATOR____PATH . '/classes/ui/class.ui.dialog.php');
-require_once(DUPLICATOR____PATH . '/src/Package/Recovery/RecoveryStatus.php');
 
 global $packagesViewData;
 $tplMng = TplMng::getInstance();

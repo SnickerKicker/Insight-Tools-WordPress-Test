@@ -4,13 +4,14 @@
  * Dup archive expander
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
 namespace Duplicator\Installer\Core\Deploy\DupArchive;
 
 use DupArchiveStateBase;
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Libs\DupArchive\DupArchiveEngine;
 use Duplicator\Libs\DupArchive\Processors\DupArchiveFileProcessor;
@@ -65,13 +66,9 @@ class Daws
      */
     public function processRequest($params)
     {
-        $retVal = new stdClass();
-
+        $retVal       = new stdClass();
         $retVal->pass = false;
-
-        $action = $params['action'];
-
-        $initializeState = false;
+        $action       = $params['action'];
 
         $archiveConfig = DUPX_ArchiveConfig::getInstance();
         if (!DupArchiveFileProcessor::setNewFilePathCallback(array($archiveConfig, 'destFileFromArchiveName'))) {
@@ -81,11 +78,10 @@ class Daws
         }
 
         $throttleDelayInMs = SnapUtil::getArrayValue($params, 'throttle_delay', false, 0);
+        $expandState       = null;
 
         if ($action == 'start_expand') {
             Log::info('DAWN START EXPAND');
-
-            $initializeState = true;
 
             DawsExpandState::purgeStatefile();
             SnapIO::rm($this->cancelFile);
@@ -100,34 +96,33 @@ class Daws
             $includedFiles            = SnapUtil::getArrayValue($params, 'includedFiles', false, array());
             $directoryModeOverride    = SnapUtil::getArrayValue($params, 'dir_mode_override', false, 0755);
 
+            $archveHeader                          = DupArchiveEngine::getArchiveHeader($archiveFilepath, Security::getInstance()->getArchivePassword());
+            $expandState                           = new DawsExpandState($archveHeader);
+            $expandState->archivePath              = $archiveFilepath;
+            $expandState->working                  = true;
+            $expandState->timeSliceInSecs          = $workerTime;
+            $expandState->basePath                 = $restoreDirectory;
+            $expandState->filteredDirectories      = $filteredDirectories;
+            $expandState->excludedDirWithoutChilds = $excludedDirWithoutChilds;
+            $expandState->includedFiles            = $includedFiles;
+            $expandState->filteredFiles            = $filteredFiles;
+            $expandState->fileRenames              = $fileRenames;
+            $expandState->fileModeOverride         = $fileModeOverride;
+            $expandState->directoryModeOverride    = $directoryModeOverride;
+            $expandState->throttleDelayInUs        = 1000 * $throttleDelayInMs;
+            $expandState->save();
+
             $action = 'expand';
         } else {
             Log::info('DAWN CONTINUE EXPAND');
+            $expandState = DawsExpandState::getFromFile();
         }
 
         if ($action == 'expand') {
-            $expandState = DawsExpandState::getInstance($initializeState);
-
             $this->lock_handle = SnapIO::fopen($this->lockFile, 'c+');
             SnapIO::flock($this->lock_handle, LOCK_EX);
 
-            if ($initializeState || $expandState->working) {
-                if ($initializeState) {
-                    $expandState->archivePath              = $archiveFilepath;
-                    $expandState->working                  = true;
-                    $expandState->timeSliceInSecs          = $workerTime;
-                    $expandState->basePath                 = $restoreDirectory;
-                    $expandState->filteredDirectories      = $filteredDirectories;
-                    $expandState->excludedDirWithoutChilds = $excludedDirWithoutChilds;
-                    $expandState->includedFiles            = $includedFiles;
-                    $expandState->filteredFiles            = $filteredFiles;
-                    $expandState->fileRenames              = $fileRenames;
-                    $expandState->fileModeOverride         = $fileModeOverride;
-                    $expandState->directoryModeOverride    = $directoryModeOverride;
-
-                    $expandState->save();
-                }
-                $expandState->throttleDelayInUs = 1000 * $throttleDelayInMs;
+            if ($expandState->working) {
                 DupArchiveEngine::expandArchive($expandState);
             }
 
@@ -149,15 +144,11 @@ class Daws
                 Log::info("DAWN EXPAND CONTINUE", Log::LV_DETAILED);
             }
 
-
             SnapIO::flock($this->lock_handle, LOCK_UN);
 
             $retVal->pass   = true;
             $retVal->status = $this->getStatus($expandState);
         } elseif ($action == 'get_status') {
-            /* @var $expandState DawsExpandState */
-            $expandState = DawsExpandState::getInstance($initializeState);
-
             $retVal->pass   = true;
             $retVal->status = $this->getStatus($expandState);
         } elseif ($action == 'cancel') {

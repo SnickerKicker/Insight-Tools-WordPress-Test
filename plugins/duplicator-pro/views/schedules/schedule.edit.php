@@ -2,11 +2,6 @@
 defined("ABSPATH") or die("");
 DUP_PRO_U::hasCapability('export');
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.schedule.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.package.template.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/package/class.pack.runner.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-
 global $wp_version;
 global $wpdb;
 

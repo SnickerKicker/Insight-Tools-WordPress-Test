@@ -5,7 +5,7 @@
  * The basic render function doesn't handle anything and all content must be generated in the content, including the wrapper.
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 

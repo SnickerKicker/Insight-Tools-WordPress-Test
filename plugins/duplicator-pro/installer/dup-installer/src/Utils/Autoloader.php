@@ -1,18 +1,14 @@
 <?php
 
 /**
- * Auloader calsses
- *
- * Standard: PSR-2
- * @link http://www.php-fig.org/psr/psr-2
- *
- * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
- *
+ * @package Duplicator\Installer
  */
 
 namespace Duplicator\Installer\Utils;
 
+/**
+ * Autoloader class
+ */
 final class Autoloader
 {
     const ROOT_NAMESPACE                 = 'Duplicator\\';
@@ -53,13 +49,13 @@ final class Autoloader
 
                 $filepath = $mappedPath . str_replace('\\', '/', substr($className, strlen($namespace))) . '.php';
                 if (file_exists($filepath)) {
-                    include_once($filepath);
+                    include $filepath;
                     return true;
                 }
             }
         } else {
             if (file_exists($filepath)) {
-                include_once($filepath);
+                include $filepath;
                 return true;
             }
         }

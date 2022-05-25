@@ -2,6 +2,7 @@
 
 use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Utils\Crypt\CryptBlowfish;
+use Duplicator\Addons\ProBase\License\License;
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
@@ -12,7 +13,6 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
  */
 class DUP_PRO_Plugin_Upgrade
 {
-
     const DUP_VERSION_OPT_KEY = 'duplicator_pro_plugin_version';
 
     public static function onActivationAction()
@@ -23,8 +23,6 @@ class DUP_PRO_Plugin_Upgrade
             self::updateInstallation($oldDupVersion);
         }
 
-        //Setup All Directories
-        DUP_PRO_U::initStorageDirectory();
         //Rename installer files if exists
         DUP_PRO_Migration::renameInstallersPhpFiles();
     }

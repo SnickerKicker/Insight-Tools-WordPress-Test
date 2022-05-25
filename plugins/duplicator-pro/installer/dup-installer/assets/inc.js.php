@@ -1,7 +1,9 @@
 <?php
 defined("DUPXABSPATH") or die("");
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
+use Duplicator\Installer\Utils\SecureCsrf;
 use Duplicator\Libs\Snap\SnapJson;
 
 $paramsManager = PrmMng::getInstance();
@@ -309,7 +311,7 @@ $paramsManager = PrmMng::getInstance();
         $paramManager = PrmMng::getInstance();
         echo SnapJson::jsonEncodePPrint(array(
         PrmMng::PARAM_ROUTER_ACTION => $paramManager->getValue(PrmMng::PARAM_ROUTER_ACTION),
-        DUPX_Security::ROUTER_TOKEN               => DUPX_CSRF::generate($paramManager->getValue(PrmMng::PARAM_ROUTER_ACTION))
+        Security::ROUTER_TOKEN => SecureCsrf::generate($paramManager->getValue(PrmMng::PARAM_ROUTER_ACTION))
         ));
         ?>;
         var ajaxData = $.extend({}, tokenData, obj.params);

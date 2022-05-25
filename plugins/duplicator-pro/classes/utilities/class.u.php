@@ -482,19 +482,37 @@ class DUP_PRO_U
         //--------------------------------
         //FILE CREATION
         //SSDIR: Create Index File
-        $ssfile = @fopen($path_ssdir . '/index.php', 'w');
-        @fwrite($ssfile, '<?php error_reporting(0);  if (stristr(php_sapi_name(), "fcgi")) { $url  =  "http://" . $_SERVER["HTTP_HOST"]; header("Location: {$url}/404.html");} else { header("HTTP/1.1 404 Not Found", true, 404);} exit();');
-        @fclose($ssfile);
-
+        $indexContent = <<<'INDEX'
+<?php
+    error_reporting(0); 
+    if (stristr(php_sapi_name(), "fcgi")) { 
+        $url  =  "http://" . $_SERVER["HTTP_HOST"]; header("Location: {$url}/404.html");
+    } else { 
+        header("HTTP/1.1 404 Not Found", true, 404);
+    }
+    exit();
+INDEX;
+        file_put_contents($path_ssdir . '/.htaccess', $indexContent);
+        
         //SSDIR: Create .htaccess
         // $storage_htaccess_off = DUP_PRO_Settings::Get('storage_htaccess_off');
         if ($global->storage_htaccess_off) {
-            @unlink($path_ssdir . '/.htaccess');
+            if (file_exists($path_ssdir . '/.htaccess')) {
+                @unlink($path_ssdir . '/.htaccess');
+            }
         } else {
-            $htfile   = @fopen($path_ssdir . '/.htaccess', 'w');
-            $htoutput = "Options -Indexes";
-            @fwrite($htfile, $htoutput);
-            @fclose($htfile);
+            $htaccessContent = <<<'HTACCESS'
+# Duplicator config, In case of file downloading problem, you can disable/enable it in Settings/Sotrag plugin settings
+
+Options -Indexes
+<IfModule mod_headers.c>
+    <FilesMatch "\.(daf)$">
+        ForceType application/octet-stream
+        Header set Content-Disposition attachment
+    </FilesMatch>
+</IfModule>
+HTACCESS;
+            file_put_contents($path_ssdir . '/.htaccess', $htaccessContent);
         }
 
         //SSDIR: Robots.txt file
@@ -504,88 +522,9 @@ class DUP_PRO_U
     }
 
     /**
-     * Wrap to prevent malware scanners from reporting false/positive
-     * Switched from our old method to avoid Wordfence reporting a false positive
+     * Return true if curl lib exists
      *
-     * @param string $string The string to decrypt i.e. base64_decond
-     *
-     * @return string Returns the string base64 decoded
-     */
-    public static function installerDecrypt($string)
-    {
-        return base64_decode($string);
-    }
-
-    /**
-     * Copies an array to an objects array
-     *
-     * @param array &$sourceArray   The source array
-     * @param array &$destArray     The destination array in the class
-     * @param object $className     The class name where the $destArray exists
-     *
-     * @return null
-     */
-    public static function objectArrayCopy(&$sourceArray, &$destArray, $className)
-    {
-        foreach ($sourceArray as $source_object) {
-            $dest_object = new $className();
-            self::objectCopy($source_object, $dest_object);
-            array_push($destArray, $dest_object);
-        }
-    }
-
-    /**
-     * Copies simple values from one object to another
-     *
-     * @param object $srcObject       The source object
-     * @param object $destObject      The destination object to copy to
-     * @param array  $skipMemberArray List of members to skip when copying
-     *
-     * @return void
-     */
-    public static function objectCopy($srcObject, $destObject, $skipMemberArray = null)
-    {
-        foreach ($srcObject as $member_name => $member_value) {
-            if (!is_object($member_value) && (($skipMemberArray == null) || !in_array($member_name, $skipMemberArray))) {
-                // Skipping all object members
-                $destObject->$member_name = $member_value;
-            }
-        }
-    }
-
-    /**
-     *
-     * @param mixed $srcObject
-     * @param mixed $destObject
-     */
-    public static function recursiveObjectCopyToArray($srcObject, &$destObject, $toArray = false)
-    {
-        if (is_scalar($srcObject)) {
-            $destObject = $srcObject;
-        } elseif ($toArray) {
-            $destObject = array();
-            foreach ((array) $srcObject as $key => $val) {
-                if (is_scalar($val)) {
-                    $destObject[$key] = $val;
-                } else {
-                    self::recursiveObjectCopyToArray($val, $destObject[$key], true);
-                }
-            }
-        } else {
-            foreach ($srcObject as $member_name => $member_value) {
-                if (is_scalar($member_value)) {
-                    $destObject->$member_name = $member_value;
-                } else {
-                    self::recursiveObjectCopyToArray($member_value, $destObject->$member_name, true);
-                }
-            }
-        }
-    }
-
-    /**
-     * Is the server PHP 5.3 or better
-     *
-     * @return  bool    Returns true if the server PHP 5.3 or better
+     * @return  bool
      */
     public static function isCurlExists()
     {
@@ -607,29 +546,9 @@ class DUP_PRO_U
     }
 
     /**
-     * Is the server PHP 5.5 or better
+     * Is the server PHP 7.0 or better
      *
-     * @return  bool    Returns true if the server PHP 5.3 or better
-     */
-    public static function PHP55()
-    {
-        return version_compare(PHP_VERSION, '5.5.0', '>=');
-    }
-
-    /**
-     * Is the server PHP 5.6 or better
-     *
-     * @return  bool    Returns true if the server PHP 5.3 or better
-     */
-    public static function PHP56()
-    {
-        return version_compare(PHP_VERSION, '5.6.0', '>=');
-    }
-
-    /**
-     * Is the server PHP 5.5 or better
-     *
-     * @return  bool    Returns true if the server PHP 5.3 or better
+     * @return  bool Returns true if the server PHP 7.0 or better
      */
     public static function PHP70()
     {

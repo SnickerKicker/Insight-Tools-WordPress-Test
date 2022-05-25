@@ -12,6 +12,7 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\PrmMng;
 
@@ -89,7 +90,7 @@ class DUPX_test_wordpress_exec implements DUPX_interface_test
 
     protected static function getScriptTestName()
     {
-        return 'wp_test_script_' . DUPX_Security::getInstance()->getSecondaryPackageHash() . '.php';
+        return 'wp_test_script_' . Security::getInstance()->getSecondaryPackageHash() . '.php';
     }
 
     public static function getScriptTestPath()

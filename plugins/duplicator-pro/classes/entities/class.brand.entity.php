@@ -21,7 +21,6 @@ use Duplicator\Libs\Snap\SnapIO;
 /* @var $global DUP_PRO_Global_Entity */
 /* @var $brand DUP_PRO_Brand_Entity */
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.json.entity.base.php');
 // For those brand types that do not require any configuration ahead of time
 abstract class DUP_PRO_Brand_Modes
 {
@@ -103,12 +102,10 @@ class DUP_PRO_Brand_Entity extends DUP_PRO_JSON_Entity_Base
         $txt = DUP_PRO_U::__('Unknown');
         switch ($this->brandMode) {
             case DUP_PRO_Brand_Modes::keepPlugin:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 $txt = DUP_PRO_U::__('Keep Plugin');
-
+                $txt = DUP_PRO_U::__('Keep Plugin');
                 break;
             case DUP_PRO_Brand_Modes::removePlugin:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             $txt = DUP_PRO_U::__('Remove Plugin');
-
+                $txt = DUP_PRO_U::__('Remove Plugin');
                 break;
         }
 
@@ -200,9 +197,9 @@ class DUP_PRO_Brand_Entity extends DUP_PRO_JSON_Entity_Base
                 if (file_exists("{$dir}{$attachment}")) {
                     SnapIO::mkdir(dirname("{$installer}{$attachment}"), 0755, true);
                     if (@copy("{$dir}{$attachment}", "{$installer}{$attachment}") === false) {
-                            DUP_PRO_Log::error("Error copying {$dir}{$attachment} to {$installer}{$attachment}", '', false);
+                        DUP_PRO_Log::error("Error copying {$dir}{$attachment} to {$installer}{$attachment}", '', false);
                     } else {
-                                $copy[] = 1;
+                        $copy[] = 1;
                     }
                 }
             }

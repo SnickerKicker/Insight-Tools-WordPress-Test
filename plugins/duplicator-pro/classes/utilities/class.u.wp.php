@@ -30,7 +30,7 @@ class DUP_PRO_WP_U
     public static function getAdminUserLists($blogId = 0)
     {
         $args = array(
-            'fields' => array('id', 'user_login')
+            'fields' => array('ID', 'user_login')
         );
 
         if (is_multisite()) {

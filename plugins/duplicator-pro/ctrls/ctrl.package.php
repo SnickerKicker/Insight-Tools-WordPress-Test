@@ -8,8 +8,6 @@ require_once(DUPLICATOR____PATH . '/ctrls/ctrl.base.php');
 require_once(DUPLICATOR____PATH . '/classes/class.scan.check.php');
 require_once(DUPLICATOR____PATH . '/classes/utilities/class.u.json.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.package.template.entity.php');
 /**
  * Controller for Tools
  */

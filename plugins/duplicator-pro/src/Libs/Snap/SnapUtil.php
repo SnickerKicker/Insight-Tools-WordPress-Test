@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -293,10 +293,6 @@ class SnapUtil
         // if ini_set is disabled can change the values
         if (!function_exists('ini_set')) {
             return false;
-        }
-
-        if (function_exists('isIniValChangeable')) {
-            return isIniValChangeable($setting);
         }
 
         static $ini_all;

@@ -113,10 +113,11 @@ class DUPX_U
 
     /**
      * @param string $archive_filepath  full path of zip archive
+     * @param string $password archive password
      *
      * @return boolean|string  path of dup-installer folder of false if not found
      */
-    public static function findDupInstallerFolder($archive_filepath)
+    public static function findDupInstallerFolder($archive_filepath, $password)
     {
         if (!class_exists('ZipArchive')) {
             return '';
@@ -126,6 +127,9 @@ class DUPX_U
         $dupArchiveTxt = Bootstrap::ARCHIVE_PREFIX . Bootstrap::getPackageHash() . Bootstrap::ARCHIVE_EXTENSION;
 
         if ($zipArchive->open($archive_filepath) === true) {
+            if (strlen($password)) {
+                $zipArchive->setPassword($password);
+            }
             for ($i = 0; $i < $zipArchive->numFiles; $i++) {
                 $stat     = $zipArchive->statIndex($i);
                 $safePath = rtrim(self::setSafePath($stat['name']), '/');
@@ -1319,7 +1323,7 @@ class DUPX_U
      */
     public static function maintenanceMode($enable = false)
     {
-        $homePath = SnapIO::safePathTrailingslashit(PrmMng::getInstance()->getValue(PrmMng::PARAM_PATH_NEW));
+        $homePath = SnapIO::trailingslashit(PrmMng::getInstance()->getValue(PrmMng::PARAM_PATH_WP_CORE_NEW));
         if (!is_writable($homePath)) {
             Log::info('CAN\'T ' . ($enable ? 'SET' : 'REMOVE') . ' MAINTENANCE MODE, ROOT FOLDER NOT WRITABLE');
             return;
@@ -1357,7 +1361,7 @@ class DUPX_U
     /**
      * Check if string is base64 encoded
      *
-     * @param type $str
+     * @param string $str
      * @return boolean|str return false if isn't base64 string or decoded string
      */
     public static function is_base64($str)

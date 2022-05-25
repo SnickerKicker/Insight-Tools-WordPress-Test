@@ -12,7 +12,7 @@ class DUP_PRO_Low_U
     {
         $publics = get_object_vars($object);
         unset($publics['id']);
-// Disregard anything that starts with '_'
+        // Disregard anything that starts with '_'
         foreach ($publics as $key => $value) {
             if (DUP_PRO_STR::startsWith($key, '_')) {
                 unset($publics[$key]);

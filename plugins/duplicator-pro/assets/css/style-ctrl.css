@@ -123,9 +123,9 @@ div.dup-spinner {
   }
 
  div.dup-tabs-vert > div.data-panels {
-     flex:0 0 65%;
+     flex:0 0 62%;
      border-top:1px solid silver;
-     padding: 5px;
+     padding:8px;
      border-radius: 2px
  }
 

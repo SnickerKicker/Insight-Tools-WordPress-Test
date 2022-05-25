@@ -2,13 +2,19 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
+use Duplicator\Libs\DupArchive\Headers\DupArchiveFileHeader;
+use Duplicator\Libs\DupArchive\Headers\DupArchiveHeader;
+use Duplicator\Libs\Snap\JsonSerialize\JsonSerialize;
 use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapJson;
+use Duplicator\Libs\Snap\SnapObjUtils;
 use Duplicator\Libs\Snap\SnapUtil;
+use Duplicator\Package\Create\DupArchive\PackageDupArchiveCreateState;
+use Duplicator\Package\Create\DupArchive\PackageDupArchiveExpandState;
+use Duplicator\Package\SettingsUtils;
 use Duplicator\Utils\ExpireOptions;
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.package.template.entity.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.upload.info.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.multisite.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.archive.php');
@@ -58,7 +64,7 @@ final class DUP_PRO_Package_Build_Outcome
 
 class DUP_PRO_Build_Progress
 {
-    public $thread_start_time;
+    public $thread_start_time         = 0;
     public $initialized               = false;
     public $installer_built           = false;
     public $archive_started           = false;
@@ -72,7 +78,8 @@ class DUP_PRO_Build_Progress
     public $retries                   = 0;
     public $current_build_mode        = -1;
     public $current_build_compression = true;
-    public $custom_data               = null;
+    public $dupCreate                 = null;
+    public $dupExpand                 = null;
     public $warnings                  = array();
 
     public function set_build_mode()
@@ -88,6 +95,32 @@ class DUP_PRO_Build_Progress
         } else {
             DUP_PRO_LOG::trace("Build mode already set to $this->current_build_mode");
         }
+
+
+    }
+
+    /**
+     * Reset build progress values
+     *
+     * @return void
+     */
+    public function reset() {
+        // don't reset current_build_mode and current_build_compression
+        $this->thread_start_time         = 0;
+        $this->initialized               = false;
+        $this->installer_built           = false;
+        $this->archive_started           = false;
+        $this->archive_start_time        = 0;
+        $this->archive_has_database      = false;
+        $this->archive_built             = false;
+        $this->database_script_built     = false;
+        $this->failed                    = false;
+        $this->next_archive_file_index   = 0;
+        $this->next_archive_dir_index    = 0;
+        $this->retries                   = 0;
+        $this->dupCreate                 = null;
+        $this->dupExpand                 = null;
+        $this->warnings                  = array();
     }
 
     public function has_completed()
@@ -141,7 +174,7 @@ class DUP_PRO_Package
     public $Hash            = '';
     public $NameHash        = null;
     public $Type            = -1;
-    public $Notes           = null;
+    public $notes           = '';
     public $StorePath       = null;
     public $StoreURL        = null;
     public $ScanFile        = null;
@@ -222,18 +255,6 @@ class DUP_PRO_Package
      */
     public $template_id       = -1;
 
-    public function add_log_to_zip($zip_filepath)
-    {
-        $log_filepath = $this->get_safe_log_filepath();
-        if (file_exists($log_filepath)) {
-            $log_filename = $this->ID . '_' . basename($log_filepath);
-            return DUP_PRO_Zip_U::zipFile($log_filepath, $zip_filepath, false, $log_filename, true);
-        } else {
-            DUP_PRO_LOG::trace("$log_filepath doesnt exist to add to $zip_filepath");
-            return true;
-        }
-    }
-
     /**
      *  Manages the Package Process
      */
@@ -242,7 +263,7 @@ class DUP_PRO_Package
         $this->ID                        = null;
         $this->Version                   = DUPLICATOR_PRO_VERSION;
         $this->Name                      = self::get_default_name();
-        $this->Notes                     = null;
+        $this->notes                     = '';
         $this->StoreURL                  = DUPLICATOR_PRO_SSDIR_URL . '/';
         $this->StorePath                 = DUPLICATOR_PRO_SSDIR_PATH_TMP;
         $this->Database                  = new DUP_PRO_Database($this);
@@ -262,7 +283,7 @@ class DUP_PRO_Package
         unset($this->ID);
         unset($this->Version);
         unset($this->Name);
-        unset($this->Notes);
+        unset($this->notes);
         unset($this->StoreURL);
         unset($this->StorePath);
         unset($this->Database);
@@ -343,20 +364,6 @@ class DUP_PRO_Package
         } else {
             return 0;
         }
-    }
-
-    public function does_default_storage_exist()
-    {
-        $retval = false;
-        foreach ($this->upload_infos as $upload_info) {
-            if ($upload_info->storage_id == DUP_PRO_Virtual_Storage_IDs::Default_Local) {
-                if ($upload_info->has_completed(true)) {
-                    $retval = ($this->get_local_package_file(DUP_PRO_Package_File_Type::Archive, true) != null);
-                }
-            }
-        }
-
-        return $retval;
     }
 
     public function add_upload_infos($storage_ids)
@@ -461,52 +468,6 @@ class DUP_PRO_Package
         return $link_log;
     }
 
-    /**
-     * @param int $type
-     * @return array
-     */
-    public function getPackageFileDownloadInfo($type)
-    {
-        $result = array(
-            "filename" => "",
-            "url"      => ""
-        );
-        switch ($type) {
-            case DUP_PRO_Package_File_Type::Archive;
-                $result["filename"] = $this->Archive->File;
-                $result["url"]      = $this->Archive->getURL();
-
-                break;
-            case DUP_PRO_Package_File_Type::SQL;
-                $result["filename"] = $this->Database->File;
-                $result["url"]      = $this->Database->getURL();
-
-                break;
-            case DUP_PRO_Package_File_Type::Log;
-                $result["filename"] = $this->get_log_filename();
-                $result["url"]      = $this->get_log_url();
-
-                break;
-            case DUP_PRO_Package_File_Type::Scan;
-                $result["filename"] = $this->get_scan_filename();
-                $result["url"]      = $this->get_scan_url();
-
-                break;
-            default:
-                break;
-        }
-
-        return $result;
-    }
-
-    public function getInstallerDownloadInfo()
-    {
-        return array(
-            "id"   => $this->ID,
-            "hash" => $this->Hash
-        );
-    }
-
     public function get_dump_filename()
     {
         return $this->NameHash . '_dump.txt';
@@ -542,72 +503,99 @@ class DUP_PRO_Package
      * Get local package file
      *
      * @param int  $file_type    DUP_PRO_Package_File_Type
-     * @param bool $only_default if true check only default
      * 
-     * @return null|string file path of null if don't exists
+     * @return bool|string file path or false if don't exists
      */
-    public function get_local_package_file($file_type, $only_default = false)
+    public function getLocalPackageFilePath($file_type)
     {
-        $file_path = null;
-        if ($file_type == DUP_PRO_Package_File_Type::Installer) {
-            DUP_PRO_LOG::trace("Installer requested");
-            $file_name = apply_filters('duplicator_pro_installer_file_path', $this->get_installer_filename());
-        } elseif ($file_type == DUP_PRO_Package_File_Type::Archive) {
-            DUP_PRO_LOG::trace("Archive requested");
-            $file_name = $this->get_archive_filename();
-            DUP_PRO_LOG::trace("archive file name $file_name");
-        } elseif ($file_type == DUP_PRO_Package_File_Type::SQL) {
-            DUP_PRO_LOG::trace("SQL requested");
-            $file_name = $this->get_database_filename();
-        } elseif ($file_type == DUP_PRO_Package_File_Type::Dump) {
-            $file_name     = $this->get_dump_filename();
-            // Log file is special case since it should always present in default location
-            $log_file_path = SnapIO::safePath(DUPLICATOR_PRO_DUMP_PATH) . "/$file_name";
-            if (file_exists($log_file_path)) {
-                return $log_file_path;
-            } else {
-                return null;
-            }
-        } else {
-            // log
-            $file_name     = $this->get_log_filename();
-            // Log file is special case since it should always present in default location
-            $log_file_path = SnapIO::safePath(DUPLICATOR_PRO_SSDIR_PATH) . "/$file_name";
-            if (file_exists($log_file_path)) {
-                return $log_file_path;
-            } else {
-                return null;
+        switch($file_type) {
+            case DUP_PRO_Package_File_Type::Installer:
+                DUP_PRO_LOG::trace("Installer requested");
+                $fileName = apply_filters('duplicator_pro_installer_file_path', $this->get_installer_filename());
+                break;
+            case DUP_PRO_Package_File_Type::Archive:
+                DUP_PRO_LOG::trace("Archive requested");
+                $fileName = $this->get_archive_filename();
+                break;
+            case DUP_PRO_Package_File_Type::Log:
+                DUP_PRO_LOG::trace("Log requested");
+                $fileName = $this->get_log_filename();
+                break;
+            default:
+                throw new Exception("File type $file_type not supported");
+        }
+
+        //First check if default file exists
+        if (file_exists($filePath = SnapIO::trailingslashit(DUPLICATOR_PRO_SSDIR_PATH).$fileName)) {
+            return SnapIO::safePath($filePath);
+        }
+
+        foreach ($this->getLocalStorages() as $localStorage) {
+            if (file_exists($filePath = SnapIO::trailingslashit($localStorage->local_storage_folder).$fileName)) {
+                return SnapIO::safePath($filePath);
             }
         }
 
+        return false;
+    }
+
+    /**
+     * @param DUP_PRO_Package_File_Type $fileType Type of File to be Downloaded
+     * @return string URL at which the file can be downloaded
+     * @throws Exception
+     */
+    public function getLocalPackageFileURL($fileType)
+    {
+        if ($fileType == DUP_PRO_Package_File_Type::Log) {
+            return $this->get_log_url();
+        }
+
+        if (!$this->getLocalPackageFilePath($fileType)) {
+            return "";
+        }
+
+        switch($fileType) {
+            case DUP_PRO_Package_File_Type::Installer:
+                return $this->getLocalPackageAjaxDownloadURL(DUP_PRO_Package_File_Type::Installer);
+            case DUP_PRO_Package_File_Type::Archive:
+                return file_exists(SnapIO::trailingslashit(DUPLICATOR_PRO_SSDIR_PATH).$this->get_archive_filename())
+                    ? $this->Archive->getURL()
+                    : $this->getLocalPackageAjaxDownloadURL(DUP_PRO_Package_File_Type::Archive);
+            default:
+                throw new Exception("File type $fileType not supported");
+        }
+    }
+
+    public function getLocalPackageAjaxDownloadURL($fileType){
+        return admin_url('admin-ajax.php') . "?" . http_build_query(array(
+            'action'  => 'duplicator_pro_download_package_file',
+            'hash'    =>  $this->Hash,
+            'token'   =>  md5(Duplicator\Utils\Crypt\CryptBlowfish::encrypt($this->Hash)),
+            'fileType' => $fileType
+        ));
+    }
+
+    /**
+     * Return list of local storage
+     * 
+     * @return DUP_PRO_Storage_Entity[]
+     */
+    public function getLocalStorages() {
+        $localStorages = array();
         foreach ($this->upload_infos as $upload_info) {
-            if ($only_default && $upload_info->storage_id != DUP_PRO_Virtual_Storage_IDs::Default_Local) {
+            if (($localStorage = DUP_PRO_Storage_Entity::get_by_id($upload_info->storage_id, false)) === null) {
                 continue;
             }
 
-            if (!$upload_info->has_completed(true)) {
-                continue;
+            if (
+                $upload_info->storage_id == DUP_PRO_Virtual_Storage_IDs::Default_Local || 
+                $localStorage->storage_type == DUP_PRO_Storage_Types::Local
+            ) {
+                $localStorages[] = $localStorage;
             }
-
-            if (($storage = DUP_PRO_Storage_Entity::get_by_id($upload_info->storage_id, false)) == null) {
-                continue;
-            }
-
-            if ($storage->storage_type != DUP_PRO_Storage_Types::Local) {
-                continue;
-            }
-
-            $candidate_path = trailingslashit($storage->local_storage_folder).$file_name;
-
-            if (!file_exists($candidate_path)) {
-                continue;
-            }
-
-            $file_path = $candidate_path;
-            break;
         }
-        
-        return $file_path;
+
+        return $localStorages;
     }
 
     /**
@@ -618,7 +606,6 @@ class DUP_PRO_Package
     public function validateInputs()
     {
         $validator = new DUP_PRO_Validator();
-
         $validator->filter_custom(
             $this->Name,
             DUP_PRO_Validator::FILTER_VALIDATE_NOT_EMPTY,
@@ -1043,7 +1030,26 @@ class DUP_PRO_Package
         $table = $wpdb->base_prefix . "duplicator_pro_packages";
         $sql   = $wpdb->prepare("SELECT * FROM `{$table}` where ID = %d", $id);
         $row   = $wpdb->get_row($sql);
-//DUP_PRO_LOG::traceObject('Object row', $row);
+        //DUP_PRO_LOG::traceObject('Object row', $row);
+        if ($row) {
+            return self::package_from_row($row);
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     *
+     * @global wpdb $wpdb
+     * @param string $hash
+     * @return DUP_PRO_Package|bool false if fail
+     */
+    public static function get_by_hash($hash)
+    {
+        global $wpdb;
+        $table = $wpdb->base_prefix . "duplicator_pro_packages";
+        $sql   = $wpdb->prepare("SELECT * FROM `{$table}` where hash = %s", $hash);
+        $row   = $wpdb->get_row($sql);
         if ($row) {
             return self::package_from_row($row);
         } else {
@@ -1219,46 +1225,95 @@ class DUP_PRO_Package
     {
         //DUP_PRO_LOG::traceObject('json string', $json_string);
         $stdobject          = json_decode($json_string);
+        if (!is_object($stdobject)) {
+            throw new Exception('Can\'t read json object ');
+        }
         $package            = new DUP_PRO_Package();
-        DUP_PRO_U::objectCopy($stdobject, $package);
+        SnapObjUtils::objCopy($stdobject, $package);
         $package->Multisite = new DUP_PRO_Multisite();
         if (isset($stdobject->Multisite)) {
-            DUP_PRO_U::objectCopy($stdobject->Multisite, $package->Multisite);
+            SnapObjUtils::objCopy($stdobject->Multisite, $package->Multisite);
         }
 
         $package->Archive           = new DUP_PRO_Archive($package);
-        DUP_PRO_U::objectCopy($stdobject->Archive, $package->Archive);
-        DUP_PRO_U::objectCopy($stdobject->Archive->FilterInfo->Dirs, $package->Archive->FilterInfo->Dirs);
-        DUP_PRO_U::objectCopy($stdobject->Archive->FilterInfo->Exts, $package->Archive->FilterInfo->Exts);
-        DUP_PRO_U::objectCopy($stdobject->Archive->FilterInfo->Files, $package->Archive->FilterInfo->Files);
+        SnapObjUtils::objCopy($stdobject->Archive, $package->Archive);
+        SnapObjUtils::objCopy($stdobject->Archive->FilterInfo->Dirs, $package->Archive->FilterInfo->Dirs);
+        SnapObjUtils::objCopy($stdobject->Archive->FilterInfo->Exts, $package->Archive->FilterInfo->Exts);
+        SnapObjUtils::objCopy($stdobject->Archive->FilterInfo->Files, $package->Archive->FilterInfo->Files);
+
         $package->Installer         = new DUP_PRO_Installer($package);
-        DUP_PRO_U::objectCopy($stdobject->Installer, $package->Installer);
+        SnapObjUtils::objCopy($stdobject->Installer, $package->Installer);
+        $package->Installer->__wakeup();
+        
         $package->Database          = new DUP_PRO_Database($package);
-        DUP_PRO_U::objectCopy($stdobject->Database, $package->Database);
-//TODO: Implement db_build_progress here
+        SnapObjUtils::objCopy($stdobject->Database, $package->Database);
+
         $package->db_build_progress = new DUP_PRO_DB_Build_Progress();
         if (property_exists($stdobject, "db_build_progress")) {
             if ($stdobject->db_build_progress !== null) {
-                DUP_PRO_U::recursiveObjectCopyToArray($stdobject->db_build_progress, $package->db_build_progress);
+                SnapObjUtils::recursiveObjectCopyToArray($stdobject->db_build_progress, $package->db_build_progress);
             }
         }
 
-        if (property_exists($stdobject->Database, 'info')) {
-            DUP_PRO_U::recursiveObjectCopyToArray($stdobject->Database->info, $package->Database->info);
+        if (
+            is_object($stdobject->Database) && 
+            property_exists($stdobject->Database, 'info')
+        ) {
+            SnapObjUtils::recursiveObjectCopyToArray($stdobject->Database->info, $package->Database->info);
             /* cluttering up the log too much  DUP_PRO_Log::trace('DATABASE INFO STD OJB '.print_r($stdobject->Database->info, true) ); */
         }
 
         $package->upload_infos   = array();
-        DUP_PRO_U::objectArrayCopy($stdobject->upload_infos, $package->upload_infos, 'DUP_PRO_Package_Upload_Info');
+        SnapObjUtils::objectArrayCopy($stdobject->upload_infos, $package->upload_infos, DUP_PRO_Package_Upload_Info::class);
         $package->build_progress = new DUP_PRO_Build_Progress();
-        DUP_PRO_U::objectCopy($stdobject->build_progress, $package->build_progress);
-        if (property_exists($stdobject->build_progress, 'custom_data') && ($stdobject->build_progress->custom_data != null)) {
-            //       DUP_PRO_LOG::traceObject('build prog', $stdobject->build_progress);
-            $package->build_progress->custom_data = new stdClass();
-            DUP_PRO_U::objectCopy($stdobject->build_progress->custom_data, $package->build_progress->custom_data);
+        SnapObjUtils::objCopy($stdobject->build_progress, $package->build_progress);
+        if (
+            is_object($stdobject->build_progress) && 
+            property_exists($stdobject->build_progress, 'dupCreate') && 
+            ($stdobject->build_progress->dupCreate != null)
+        ) {
+            $package->build_progress->dupCreate = SnapObjUtils::objCopy($package->build_progress->dupCreate, PackageDupArchiveCreateState::class);
+            $package->build_progress->dupCreate->setPackage($package);
+            if (!is_null($package->build_progress->dupCreate->archiveHeader)) {
+                $package->build_progress->dupCreate->archiveHeader = SnapObjUtils::objCopy(
+                    $package->build_progress->dupCreate->archiveHeader, 
+                    DupArchiveHeader::class
+                );
+            }
         }
+
+        if (
+            is_object($stdobject->build_progress) && 
+            property_exists($stdobject->build_progress, 'dupExpand') && 
+            ($stdobject->build_progress->dupExpand != null)
+        ) {
+            $package->build_progress->dupExpand = SnapObjUtils::objCopy($package->build_progress->dupExpand, PackageDupArchiveExpandState::class);
+            $package->build_progress->dupExpand->setPackage($package);
+            if (!is_null($package->build_progress->dupExpand->archiveHeader)) {
+                $package->build_progress->dupExpand->archiveHeader = SnapObjUtils::objCopy(
+                    $package->build_progress->dupExpand->archiveHeader, 
+                    DupArchiveHeader::class
+                );
+            }
+            if (!is_null($package->build_progress->dupExpand->currentFileHeader)) {
+                $package->build_progress->dupExpand->currentFileHeader = SnapObjUtils::objCopy(
+                    $package->build_progress->dupExpand->currentFileHeader, 
+                    DupArchiveFileHeader::class
+                );
+            }
+        }
+
         unset($stdobject);
         return $package;
+    }
+
+    /**
+     * Return true if encryption is avaialbe on current package
+     *
+     * @return bool
+     */
+    public function encryptionAvaiable() {
+        return version_compare($this->Version , '4.5.3', '>=');
     }
 
     public function contains_non_default_storage()
@@ -1529,7 +1584,7 @@ class DUP_PRO_Package
             $json = null;
             if ($global->json_mode == DUP_PRO_JSON_Mode::PHP) {
                 try {
-                    $json = SnapJson::jsonEncodePPrint($report);
+                    $json = JsonSerialize::serialize($report, JSON_PRETTY_PRINT | JsonSerialize::JSON_SERIALIZE_SKIP_CLASS_NAME);
                 } catch (Exception $jex) {
                     DUP_PRO_LOG::trace("Problem encoding using PHP JSON so switching to custom");
                     $global->json_mode = DUP_PRO_JSON_Mode::Custom;
@@ -1616,6 +1671,11 @@ class DUP_PRO_Package
 
     protected function cleanObjectBeforeSave()
     {
+        if ($this->Status == DUP_PRO_PackageStatus::COMPLETE || $this->Status < 0) {
+            // If complete clean build progress, to clean temp data
+            $this->build_progress->reset();
+            $this->db_build_progress->reset();
+        }
         $this->Archive->FilterInfo->reset();
     }
 
@@ -1629,7 +1689,7 @@ class DUP_PRO_Package
             $global->adjust_settings_for_system();
             $this->build_progress->set_build_mode();
             $this->cleanObjectBeforeSave();
-            $packageObj = SnapJson::jsonEncodePPrint($this);
+            $packageObj = JsonSerialize::serialize($this, JSON_PRETTY_PRINT | JsonSerialize::JSON_SERIALIZE_SKIP_CLASS_NAME);
             $results    = $wpdb->insert($wpdb->base_prefix . "duplicator_pro_packages", array(
                 'name'    => $this->Name,
                 'hash'    => $this->Hash,
@@ -1737,6 +1797,10 @@ class DUP_PRO_Package
                         DUP_PRO_Log::error("Duplicator is unable to insert a package record into the database table.", "'{$wpdb->last_error}'");
                     }
                     $this->ID = $wpdb->insert_id;
+                }
+
+                if ($this->Archive->isArchiveEncrypt() && !SettingsUtils::isArchiveEncryptionAvaiable()) {
+                    throw new Exception("Archive encryption isn't available.");
                 }
 
                 do_action('duplicator_pro_build_start', $this);
@@ -2208,7 +2272,7 @@ class DUP_PRO_Package
 
             $tablelist  = isset($post['dbtables-list']) ? SnapUtil::sanitizeNSCharsNewlineTrim($post['dbtables-list']) : '';
             $compatlist = isset($post['dbcompat']) ? implode(',', $post['dbcompat']) : '';
-//PACKAGE
+            // PACKAGE
             // Replaces any \n \r or \n\r from the package notes
             if (isset($post['package-notes'])) {
                 $mtemplate->notes = SnapUtil::sanitizeNSCharsNewlineTrim($post['package-notes']);
@@ -2218,18 +2282,27 @@ class DUP_PRO_Package
 
             //MULTISITE
             $mtemplate->filter_sites                  = $filter_sites;
-//ARCHIVE
+            //ARCHIVE
             $mtemplate->archive_export_onlydb         = isset($post['export-onlydb']) ? 1 : 0;
             $mtemplate->archive_filter_on             = isset($post['filter-on']) ? 1 : 0;
             $mtemplate->archive_filter_names          = isset($post['filter-names']) ? true : false;
-//INSTALLER
-            $mtemplate->installer_opts_secure_on      = isset($post['secure-on']) ? 1 : 0;
-            $secure_pass                              = isset($post['secure-pass']) ? SnapUtil::sanitizeNSCharsNewlineTrim($post['secure-pass']) : '';
-            $mtemplate->installer_opts_secure_pass    = base64_encode($secure_pass);
-//BRAND
+            //INSTALLER
+            $secureOn = (isset($post['secure-on']) ? (int) $post['secure-on'] : ArchiveConfig::SECURE_MODE_NONE);
+            switch ($secureOn) {
+                case ArchiveConfig::SECURE_MODE_NONE:
+                case ArchiveConfig::SECURE_MODE_INST_PWD:
+                case ArchiveConfig::SECURE_MODE_ARC_ENCRYPT:
+                    $mtemplate->installer_opts_secure_on = $secureOn;
+                    break;
+                default: 
+                    throw new Exception(__('Select valid secure mode'));
+            }
+
+            $mtemplate->installerPassowrd    = isset($post['secure-pass']) ? SnapUtil::sanitizeNSCharsNewlineTrim($post['secure-pass']) : '';
+            //BRAND
             $mtemplate->installer_opts_brand          = isset($post['brand']) ? (is_numeric($post['brand']) && (int) $post['brand'] > 0 ? (int) $post['brand'] : -2 ) : -2;
             $mtemplate->installer_opts_skip_scan      = (isset($post['skipscan']) && 1 == $post['skipscan']) ? 1 : 0;
-//cPanel
+            //cPanel
             $mtemplate->installer_opts_cpnl_enable    = (isset($post['cpnl-enable']) && 1 == $post['cpnl-enable']) ? 1 : 0;
             $mtemplate->installer_opts_cpnl_host      = isset($post['cpnl-host']) ? sanitize_text_field($post['cpnl-host']) : '';
             $mtemplate->installer_opts_cpnl_user      = isset($post['cpnl-user']) ? sanitize_text_field($post['cpnl-user']) : '';
@@ -2282,7 +2355,7 @@ class DUP_PRO_Package
             $package->Name                   = $name;
             $package->Hash                   = $package->make_hash();
             $package->NameHash               = "{$package->Name}_{$package->Hash}";
-            $package->Notes                  = $manual_template->notes;
+            $package->notes                  = $manual_template->notes;
             $package->Type                   = DUP_PRO_PackageType::MANUAL;
             $package->Status                 = DUP_PRO_PackageStatus::PRE_PROCESS;
             $package->schedule_id            = -1;
@@ -2311,7 +2384,7 @@ class DUP_PRO_Package
             $package->Installer->OptsDBName       = $manual_template->installer_opts_db_name;
             $package->Installer->OptsDBUser       = $manual_template->installer_opts_db_user;
             $package->Installer->OptsSecureOn     = $manual_template->installer_opts_secure_on;
-            $package->Installer->OptsSecurePass   = $manual_template->installer_opts_secure_pass;
+            $package->Installer->passowrd         = $manual_template->installerPassowrd;
             $package->Installer->OptsSkipScan     = $manual_template->installer_opts_skip_scan;
             //cPanel
             $package->Installer->OptsCPNLEnable   = $manual_template->installer_opts_cpnl_enable;
@@ -2356,7 +2429,7 @@ class DUP_PRO_Package
             $cleanPack = $package;
         }
         $cleanPack->cleanObjectBeforeSave();
-        update_option(self::OPT_ACTIVE, SnapJson::jsonEncodePPrint($cleanPack));
+        update_option(self::OPT_ACTIVE, JsonSerialize::serialize($cleanPack, JSON_PRETTY_PRINT | JsonSerialize::JSON_SERIALIZE_SKIP_CLASS_NAME));
         unset($cleanPack);
     }
 
@@ -2418,7 +2491,7 @@ class DUP_PRO_Package
         global $wpdb;
         $this->cleanObjectBeforeSave();
         $this->Status = number_format($this->Status, 1, '.', '');
-        $packageObj   = SnapJson::jsonEncodePPrint($this);
+        $packageObj   = JsonSerialize::serialize($this, JSON_PRETTY_PRINT | JsonSerialize::JSON_SERIALIZE_SKIP_CLASS_NAME);
         if (!$packageObj) {
             DUP_PRO_Log::error("Package SetStatus was unable to serialize package object while updating record.");
         }
@@ -2571,7 +2644,7 @@ class DUP_PRO_Package
     {
         $files = DUP_PRO_IO::getFilesAll(DUPLICATOR_PRO_SSDIR_PATH_TMP);
         $filesToStore = array(
-            $this->Installer->File,
+            apply_filters('duplicator_pro_installer_file_path', $this->Installer->File),
             $this->Archive->File,
         );
         $newPath = DUPLICATOR_PRO_SSDIR_PATH;

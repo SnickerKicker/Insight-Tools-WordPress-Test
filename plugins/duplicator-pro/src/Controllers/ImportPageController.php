@@ -4,7 +4,7 @@
  * Import menu page controller
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -23,6 +23,9 @@ use Exception;
 
 class ImportPageController extends AbstractMenuPageController
 {
+    const L2_TAB_UPLOAD     = 'upd';
+    const L2_TAB_REMOTE_URL = 'dwn';
+
     const USER_META_VIEW_MODE = 'dup-pro-import-view-mode';
     const VIEW_MODE_BASIC     = 'single';
     const VIEW_MODE_ADVANCED  = 'list';
@@ -40,6 +43,7 @@ class ImportPageController extends AbstractMenuPageController
         $this->menuPos      = 20;
 
         add_action('current_screen', array($this, 'addHelp'), 99);
+        add_filter('duplicator_page_template_data_' . $this->pageSlug, array($this, 'templateData'));
         add_filter('duplicator_render_page_content_' . $this->pageSlug, array($this, 'renderContent'));
     }
 
@@ -158,12 +162,13 @@ class ImportPageController extends AbstractMenuPageController
     }
 
     /**
-     * Render page content
+     * Add template data
      *
-     * @param string[] $currentLevelSlugs current page menu levels slugs
-     * @return void
+     * @param array $data template glabal data
+     *
+     * @return array
      */
-    public function renderContent($currentLevelSlugs)
+    public function templateData($data)
     {
         $viewMode = self::getViewMode();
         $archives = DUP_PRO_Package_Importer::getArchiveList();
@@ -176,11 +181,28 @@ class ImportPageController extends AbstractMenuPageController
             $adminMessageViewModeSwtich = false;
         }
 
-        DUP_PRO_Handler::init_error_handler();
+        $data['viewMode']                   = $viewMode;
+        $data['adminMessageViewModeSwtich'] = $adminMessageViewModeSwtich;
 
-        $tplMng = TplMng::getInstance();
-        $tplMng->setGlobalValue('viewMode', $viewMode);
-        $tplMng->setGlobalValue('adminMessageViewModeSwtich', $adminMessageViewModeSwtich);
-        $tplMng->render('admin_pages/import/import');
+        $slugs = $this->getCurrentMenuSlugs(false);
+        if (isset($slugs[1]) && $slugs[1] == self::L2_TAB_REMOTE_URL) {
+            $data['defSubtab'] = self::L2_TAB_REMOTE_URL;
+        } else {
+            $data['defSubtab'] = self::L2_TAB_UPLOAD;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Render page content
+     *
+     * @param string[] $currentLevelSlugs current page menu levels slugs
+     * @return void
+     */
+    public function renderContent($currentLevelSlugs)
+    {
+        DUP_PRO_Handler::init_error_handler();
+        TplMng::getInstance()->render('admin_pages/import/import');
     }
 }

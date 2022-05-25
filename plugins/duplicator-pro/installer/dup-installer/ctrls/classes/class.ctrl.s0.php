@@ -12,6 +12,7 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Addons\ProBase\License;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\PrmMng;
@@ -21,7 +22,7 @@ final class DUPX_Ctrl_S0
 
     public static function stepHeaderLog()
     {
-        $archive_path  = DUPX_Security::getInstance()->getArchivePath();
+        $archive_path  = Security::getInstance()->getArchivePath();
         $paramsManager = PrmMng::getInstance();
         $archiveConfig = DUPX_ArchiveConfig::getInstance();
         $labelPadSize  = 20;

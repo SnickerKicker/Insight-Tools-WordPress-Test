@@ -12,6 +12,7 @@
 
 namespace Duplicator\Installer\Utils\Log;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
 use Duplicator\Libs\Snap\SnapIO;
 
@@ -134,7 +135,7 @@ class Log
      */
     protected static function getLogFileName()
     {
-        return 'dup-installer-log__' . \DUPX_Security::getInstance()->getSecondaryPackageHash() . '.txt';
+        return 'dup-installer-log__' . Security::getInstance()->getSecondaryPackageHash() . '.txt';
     }
 
     /**
@@ -412,7 +413,7 @@ class Log
      */
     public static function getLogException($e, $title = 'EXCEPTION ERROR: ')
     {
-        return $title . ' ' . $e->getMessage() . "\n" .
+        return $title . ' ' . $e->getMessage() . "[CODE:" . $e->getCode() . "]\n" .
             "\tFILE:" . $e->getFile() . '[' . $e->getLIne() . "]\n" .
             "\tTRACE:\n" . $e->getTraceAsString();
     }

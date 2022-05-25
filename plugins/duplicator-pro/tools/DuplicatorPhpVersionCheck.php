@@ -39,19 +39,23 @@ if (!class_exists('DuplicatorPhpVersionCheck')) {
             ?>
             <div class="error notice">
                 <p>
+                    <b>Duplicator Pro:</b>
                     <?php
-                    $str = 'DUPLICATOR PRO: ' . __('Your system is running a very old version of PHP (%s) that is no longer suppported by Duplicator.', 'duplicator-pro');
-                    printf($str, PHP_VERSION);
-                    ?>
-                </p>
-                <p>
-                    <?php
-                    $str = __('Please ask your host to update to PHP %1s or greater. If this is impossible, ', 'duplicator-pro');
-                    $str .= '<a href="https://snapcreek.com/ticket" target="blank">';
-                    $str .= __('open a ticket', 'duplicator-pro');
-                    $str .= '</a>';
-                    $str .= __(' to request a previous version of Duplicator compatible with PHP %2s.', 'duplicator-pro');
-                    printf($str, self::$suggestedVer, PHP_VERSION);
+                        $str = __('This server is running a very old version of PHP %s no longer supported by Duplicator Pro.', 'duplicator-pro');
+                        printf($str, PHP_VERSION);
+                        echo '<br/>';
+
+                        $str = __('Please ask your host or server admin to update to PHP %1s or greater on this server.', 'duplicator-pro');
+                        printf($str, DUPLICATOR_PRO_PHP_MINIMUM_VERSION);
+                        echo '<br/>';
+
+                        echo sprintf(
+                            "%s <a href='https://snapcreek.com/ticket' target='blank'>%s</a> %s %ls.",
+                            __('If this is not possible, open a', 'duplicator-pro'),
+                            __('help ticket', 'duplicator-pro'),
+                            __('and request a previous version of Duplicator Pro compatible with PHP', 'duplicator-pro'),
+                            PHP_VERSION
+                        );
                     ?>
                 </p>
             </div>

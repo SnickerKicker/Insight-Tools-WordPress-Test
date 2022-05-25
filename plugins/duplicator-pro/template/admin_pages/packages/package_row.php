@@ -1,11 +1,7 @@
 <?php
 
 /**
- * Duplicator package row in table packages list
- *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
- *
  */
 
 defined("ABSPATH") or die("");
@@ -46,8 +42,8 @@ if (is_object($package)) {
 $uniqueid         = $package->NameHash;
 $remote_display   = $package->contains_non_default_storage();
 $storage_problem  = $package->transferWasInterrupted();
-$archive_exists   = ($package->get_local_package_file(DUP_PRO_Package_File_Type::Archive, true) != null);
-$installer_exists = ($package->get_local_package_file(DUP_PRO_Package_File_Type::Installer, true) != null);
+$archive_exists   = ($package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive) != false);
+$installer_exists = ($package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer) != false);
 $progress_error   = '';
 $remote_style     = ($remote_display && $storage_problem) ? 'remote-data-fail' : '';
 
@@ -58,13 +54,13 @@ $rowClasses[] = ($packagesViewData['rowCount'] % 2 == 0) ? 'dup-row-alt-dark' : 
 $rowClasses[] = ($isRecoverPoint) ? 'dup-recovery-package' : '';
 $rowCSS       = trim(implode(' ', $rowClasses));
 
+
 //ArchiveInfo
-$archive_name              = $package->Archive->File;
-$archiveDownloadInfo       = $package->getPackageFileDownloadInfo(DUP_PRO_Package_File_Type::Archive);
-$archiveDownloadInfoJson   = SnapJson::jsonEncodeEscAttr($archiveDownloadInfo);
-$installerDownloadInfoJson = SnapJson::jsonEncodeEscAttr($package->getInstallerDownloadInfo());
-$installer_name            = $package->get_installer_filename();
-$defaultStorage            = '?page=duplicator-pro-storage&tab=storage&inner_page=edit-default';
+$archive_name         = $package->Archive->File;
+$archiveDownloadURL   = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Archive);
+$installerDownloadURL = $package->getLocalPackageFileURL(DUP_PRO_Package_File_Type::Installer);
+$installerFullName    = $package->Installer->get_orig_filename();
+$defaultStorage       = '?page=duplicator-pro-storage&tab=storage&inner_page=edit-default';
 
 //Lang Values
 $txt_DBOnly          = __('DB Only', 'duplicator-pro');
@@ -107,7 +103,7 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) :?>
                 type="checkbox" 
                 id="<?php echo esc_attr($package->ID); ?>" 
                 data-archive-name="<?php echo esc_attr($archive_name); ?>" 
-                data-installer-name="<?php echo esc_attr($installer_name); ?>" />
+                data-installer-name="<?php echo esc_attr($installerFullName); ?>" />
             </label>
         </td>
         <td>
@@ -156,17 +152,19 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) :?>
                        <button
                            aria-label="<?php DUP_PRO_U::esc_html_e("Download Installer and Archive") ?>"
                            title="<?php echo ($archive_exists && $installer_exists) ? '' : DUP_PRO_U::__("Unable to locate both package files!"); ?>"
-                           onclick="DupPro.Pack.DownloadFile(<?php echo $archiveDownloadInfoJson; ?>);
-                                    setTimeout(function () {DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>);}, 700);
+                           onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($archiveDownloadURL); ?>',
+                                   '<?php echo esc_attr($package->get_archive_filename()); ?>');
+                                    setTimeout(function () {DupPro.Pack.DownloadFile('<?php echo esc_attr($installerDownloadURL); ?>');}, 700);
                                     jQuery(this).parent().hide();
-                                    return false;">
+                                    return false;"
+                            >
                                <i class="fa fa-fw <?php echo ($archive_exists && $installer_exists ? 'fa-download' : 'fa-exclamation-triangle') ?>"></i>
                                &nbsp;<?php DUP_PRO_U::esc_html_e("Both Files") ?>
                        </button>
                        <button
                            aria-label="<?php DUP_PRO_U::esc_html_e("Download Installer") ?>"
                            title="<?php echo ($installer_exists) ? '' : DUP_PRO_U::__("Unable to locate installer package file!"); ?>"
-                           onclick="DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>);
+                           onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($installerDownloadURL); ?>');
                                     jQuery(this).parent().hide();
                                     return false;">
                            <i class="fa fa-fw <?php echo ($installer_exists ? 'fa-bolt' : 'fa-exclamation-triangle') ?>"></i>&nbsp;
@@ -175,7 +173,8 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) :?>
                        <button
                            aria-label="<?php DUP_PRO_U::esc_html_e("Download Archive") ?>"
                            title="<?php echo ($archive_exists) ? '' : DUP_PRO_U::__("Unable to locate archive package file!"); ?>"
-                           onclick="DupPro.Pack.DownloadFile(<?php echo $archiveDownloadInfoJson; ?>);
+                           onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($archiveDownloadURL); ?>',
+                                   '<?php echo esc_attr($package->get_archive_filename()); ?>');
                                     jQuery(this).parent().hide();
                                     return false;">
                                <i class="fa-fw <?php echo ($archive_exists ? 'far fa-file-archive' : 'fa fa-exclamation-triangle') ?>"></i>&nbsp;
@@ -328,7 +327,7 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) :?>
                     id="<?php echo "{$uniqueid}_{$global->installer_base_name}" ?>" 
                     <?php DUP_PRO_UI::echoDisabled(!$installer_exists); ?> 
                     class="button button-link no-select dup-dnload-btn-single"
-                    onclick="DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>); return false;">
+                    onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($installerDownloadURL); ?>'); return false;">
                     <i class="fa <?php echo ($installer_exists ? 'fa-bolt' : 'fa-exclamation-triangle maroon') ?>"></i>
                     <?php DUP_PRO_U::esc_html_e("Installer") ?>
                 </button>
@@ -501,22 +500,24 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) : ?>
                 <?php if ($archive_exists) : ?>
                     <div class="flex-item">
                        <input type="text" class="dup-ovr-ref-links" readonly="readonly"
-                           value="<?php echo esc_attr($archiveDownloadInfo["url"]); ?>"
-                           title="<?php echo esc_attr($archiveDownloadInfo["url"]); ?>"
+                           value="<?php echo esc_attr($archiveDownloadURL); ?>"
+                           title="<?php echo esc_attr($archiveDownloadURL); ?>"
                            onfocus="jQuery(this).select();" />
                        <span class="fas fa-arrow-alt-circle-down dup-ovr-ref-links-icon"
                              title="<?php _e('Archive Import Link (URL)', 'duplicator-pro');?>"></span>
                     </div>
                     <div class="flex-item">
                        <span onclick="jQuery(this).parent().parent().find('.dup-ovr-ref-links').select();">
-                           <span data-dup-copy-value="<?php echo $archiveDownloadInfo["url"] ?>" class="dup-ovr-ref-copy no-select">
+                           <span data-dup-copy-value="<?php echo esc_attr($archiveDownloadURL); ?>"
+                                 class="dup-ovr-ref-copy no-select">
                                <i class='far fa-copy dup-cursor-pointer'></i>
                                <?php DUP_PRO_U::esc_html_e('Copy Link');?>
                            </span>
                        </span>
                        <span class="dup-ovr-ref-dwnld"
                            aria-label="<?php DUP_PRO_U::esc_html_e("Download Archive") ?>"
-                           onclick="DupPro.Pack.DownloadFile(<?php echo $archiveDownloadInfoJson; ?>);">
+                           onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($archiveDownloadURL); ?>',
+                                   '<?php echo esc_attr($package->get_archive_filename()); ?>');">
                            <i class="fas fa-download"></i> <?php DUP_PRO_U::esc_html_e('Download');?>
                        </span>
                     </div>
@@ -575,7 +576,9 @@ if ($package->Status >= DUP_PRO_PackageStatus::COMPLETE) : ?>
                                 <?php DUP_PRO_U::esc_html_e('Copy Name');?>
                             </span>
                         </span>
-                        <span class="dup-ovr-ref-dwnld" onclick="DupPro.Pack.DownloadInstaller(<?php echo $installerDownloadInfoJson; ?>);">
+                        <span class="dup-ovr-ref-dwnld"
+                              aria-label="<?php DUP_PRO_U::esc_html_e("Download Installer") ?>"
+                              onclick="DupPro.Pack.DownloadFile('<?php echo esc_attr($installerDownloadURL); ?>');">
                             <i class="fas fa-download"></i> <?php DUP_PRO_U::esc_html_e('Download');?>
                         </span>
                     </div>

@@ -91,7 +91,8 @@ div.dup-quick-start {
     font-style:italic;
     font-size:13px;
     line-height:18px;
-    margin-top:15px
+    margin-top:15px;
+    line-height: 23px;
 }
 
 div.dup-paged-nav {
@@ -593,8 +594,8 @@ input.dup-ovr-ref-links.missing {
     cursor: pointer;
 }
 
-span.dup-ovr-ref-copy,
-span.dup-ovr-ref-dwnld {
+.dup-ovr-ref-copy,
+.dup-ovr-ref-dwnld {
     padding:5px 10px 5px 10px;
     margin:-1px 0 0 7px;
     border:1px solid silver;
@@ -689,6 +690,21 @@ div.dup-spin-hlp small {
 div.dup-spin-hlp > div.title {
     font-size:18px;
     font-weight: bold;
+}
+
+div.dup-spin-hlp div.sub-head {
+    color:darkgreen;
+    font-size:0.85em;
+    font-style: italic;
+    margin:0 0 15px 0;
+}
+
+div.dup-spin-hlp small.grey {
+    color:#777;
+}
+
+div.dup-spin-hlp ul.sub-list {
+    padding: 7px;
 }
 
 div.dup-ovr-continue {

@@ -111,11 +111,7 @@ class DUP_PRO_CTRL_recovery
      */
     public static function isDisallow()
     {
-        if (defined('DUPLICATOR_PRO_DISALLOW_RECOVERY')) {
-            return (bool) DUPLICATOR_PRO_DISALLOW_RECOVERY;
-        } else {
-            false;
-        }
+        return (bool) DUPLICATOR_PRO_DISALLOW_RECOVERY;
     }
 
     /**

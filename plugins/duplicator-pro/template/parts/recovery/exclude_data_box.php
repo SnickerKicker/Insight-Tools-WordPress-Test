@@ -4,7 +4,7 @@
  * Duplicator package row in table packages list
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -258,6 +258,7 @@ $isDatabaseSafe      = $recoverStatus->isDatabaseComplete();
                         'To create a recovery-point enabled package change the conditions of the package build or template to meet the requirements listed '
                         . 'above. Then use either the %1$sRecovery Point%2$s tool or the Recovery Point button to set which package you would like as '
                         . 'the active recovery-point.',
+                        '%1$s and %2$s represents the opening and closing HTML tags for an anchor or link',
                         'duplicator-pro'
                     ),
                     '<a href="' . esc_url(DUP_PRO_CTRL_recovery::getRecoverPageLink()) . '" target="_blank" >',

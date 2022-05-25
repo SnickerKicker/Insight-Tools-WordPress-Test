@@ -3,12 +3,13 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
 namespace Duplicator\Libs\DupArchive\States;
 
+use Duplicator\Libs\DupArchive\Headers\DupArchiveHeader;
 use Duplicator\Libs\DupArchive\Processors\DupArchiveProcessingFailure;
 
 /**
@@ -18,11 +19,12 @@ abstract class DupArchiveStateBase
 {
     const MAX_FAILURE = 1000;
 
+    /** @var DupArchiveHeader */
+    public $archiveHeader     = null;
     public $basePath          = '';
     public $archivePath       = '';
-    public $isCompressed      = false;
-    public $currentFileOffset = -1;
-    public $archiveOffset     = -1;
+    public $currentFileOffset = 0;
+    public $archiveOffset     = 0;
     public $timeSliceInSecs   = -1;
     public $working           = false;
     /** @var DupArchiveProcessingFailure[] */
@@ -36,8 +38,20 @@ abstract class DupArchiveStateBase
 
     /**
      * Class constructor
+     *
+     * @param DupArchiveHeader $archiveHeader archive header
      */
-    public function __construct()
+    public function __construct(DupArchiveHeader $archiveHeader)
+    {
+        $this->archiveHeader = $archiveHeader;
+    }
+
+    /**
+     * Save state functon
+     *
+     * @return void
+     */
+    public function save()
     {
     }
 
@@ -55,8 +69,30 @@ abstract class DupArchiveStateBase
                 }
             }
         }
-
         return false;
+    }
+
+    /**
+     * Reset values
+     *
+     * @return void
+     */
+    public function reset()
+    {
+        $this->basePath          = '';
+        $this->archivePath       = '';
+        $this->isCompressed      = false;
+        $this->currentFileOffset = 0;
+        $this->archiveOffset     = 0;
+        $this->timeSliceInSecs   = -1;
+        $this->working           = false;
+        $this->failures          = array();
+        $this->failureCount      = 0;
+        $this->startTimestamp    = -1;
+        $this->throttleDelayInUs = 0;
+        $this->timeoutTimestamp  = -1;
+        $this->timerEnabled      = true;
+        $this->isRobust          = false;
     }
 
     /**

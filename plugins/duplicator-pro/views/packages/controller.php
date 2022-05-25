@@ -25,20 +25,14 @@ $nonce = wp_create_nonce('duplicator_pro_download_installer');
 <script>
     jQuery(document).ready(function ($)
     {
-        DupPro.Pack.DownloadInstaller = function (json)
-        {
-            var actionLocation = ajaxurl + '?action=duplicator_pro_download_installer&id=' + json.id + '&hash=' + json.hash + '&nonce=' + '<?php echo $nonce; ?>';
-            location.href = actionLocation;
-            return false;
-        };
-
-        DupPro.Pack.DownloadFile = function (json)
+        DupPro.Pack.DownloadFile = function (url, fileName='')
         {
             var link = document.createElement('a');
             link.className = "dpro-dnload-menu-item";
-            link.target = "_blank";
-            link.download = json.filename;
-            link.href = json.url;
+            link.href = url;
+            if (fileName !== '') {
+                link.download = fileName;
+            }
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

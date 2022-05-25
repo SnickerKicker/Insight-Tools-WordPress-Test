@@ -1,14 +1,7 @@
 <?php
 
 /**
- * Auloader calsses
- *
- * Standard: PSR-2
- * @link http://www.php-fig.org/psr/psr-2
- *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
- *
  */
 
 namespace Duplicator\Addons\ProBase\License;
@@ -124,6 +117,16 @@ final class License
     }
 
     /**
+     * Clear version cache
+     *
+     * @return void
+     */
+    public static function clearVersionCache()
+    {
+        self::getEddUpdater()->clear_version_cache();
+    }
+
+    /**
      * Return license key
      *
      * @return string
@@ -143,7 +146,6 @@ final class License
     public static function changeLicenseActivation($activate)
     {
         $license = get_option(self::LICENSE_KEY_OPTION_NAME, '');
-
         if ($activate) {
             $api_params = array(
                 'edd_action' => 'activate_license',
@@ -164,7 +166,6 @@ final class License
         global $wp_version;
 
         $agent_string = "WordPress/" . $wp_version;
-
         \DUP_PRO_LOG::trace("Wordpress agent string $agent_string");
 
         $response = wp_remote_post(
@@ -189,6 +190,7 @@ final class License
         }
 
         $license_data = json_decode(wp_remote_retrieve_body($response));
+        self::clearVersionCache();
 
         if ($activate) {
             // decode the license data
@@ -589,7 +591,7 @@ final class License
     /**
      * Accessor that returns the EDD Updater singleton
      *
-     * @return Duplicator_EDD_SL_Plugin_Updater | false
+     * @return DuplicatorEddPluginUpdater
      */
     private static function getEddUpdater()
     {
@@ -605,7 +607,7 @@ final class License
                 'wp_override' => true
             );
 
-            self::$edd_updater = new \Duplicator_EDD_SL_Plugin_Updater(
+            self::$edd_updater = new DuplicatorEddPluginUpdater(
                 self::EDD_DUPPRO_STORE_URL,
                 DUPLICATOR____FILE,
                 $dpro_edd_opts,

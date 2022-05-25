@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -21,12 +21,10 @@ abstract class DupArchiveExpandState extends DupArchiveStateBase
     const VALIDATION_STANDARD = 1;
     const VALIDATION_FULL     = 2;
 
-    /** @var DupArchiveHeader */
-    public $archiveHeader = null;
     /** @var DupArchiveFileHeader */
     public $currentFileHeader        = null;
     public $validateOnly             = false;
-    public $validationType           = self::VALIDATION_STANDARD;
+    public $validatiOnType           = self::VALIDATION_STANDARD;
     public $fileWriteCount           = 0;
     public $directoryWriteCount      = 0;
     public $expectedFileCount        = -1;
@@ -43,6 +41,41 @@ abstract class DupArchiveExpandState extends DupArchiveStateBase
     public $lastHeaderOffset      = -1;
 
     /**
+     * Class constructor
+     *
+     * @param DupArchiveHeader $archiveHeader archive header
+     */
+    public function __construct(DupArchiveHeader $archiveHeader)
+    {
+        parent::__construct($archiveHeader);
+    }
+
+    /**
+     * Reset values
+     *
+     * @return void
+     */
+    public function reset()
+    {
+        parent::reset();
+        $this->currentFileHeader        = null;
+        $this->validateOnly             = false;
+        $this->validatiOnType           = self::VALIDATION_STANDARD;
+        $this->fileWriteCount           = 0;
+        $this->directoryWriteCount      = 0;
+        $this->expectedFileCount        = -1;
+        $this->expectedDirectoryCount   = -1;
+        $this->filteredDirectories      = array();
+        $this->excludedDirWithoutChilds = array();
+        $this->filteredFiles            = array();
+        $this->includedFiles            = array();
+        $this->fileRenames              = array();
+        $this->directoryModeOverride    = -1;
+        $this->fileModeOverride         = -1;
+        $this->lastHeaderOffset         = -1;
+    }
+
+    /**
      * Reset state for file
      *
      * @return void
@@ -52,11 +85,4 @@ abstract class DupArchiveExpandState extends DupArchiveStateBase
         $this->currentFileHeader = null;
         $this->currentFileOffset = 0;
     }
-
-    /**
-     * save expand state
-     *
-     * @return void
-     */
-    abstract public function save();
 }

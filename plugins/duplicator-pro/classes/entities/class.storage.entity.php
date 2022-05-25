@@ -19,21 +19,7 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 use Duplicator\Libs\Snap\SnapURL;
 use Duplicator\Utils\Crypt\CryptBlowfish;
 
-require_once(DUPLICATOR____PATH . '/classes/storage/class.storage.supported.php');
-require_once(DUPLICATOR____PATH . '/lib/DropPHP/DropboxV2Client.php');
 require_once(DUPLICATOR____PATH . '/classes/class.io.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.json.entity.base.php');
-require_once(DUPLICATOR____PATH . '/classes/net/class.ftp.chunker.php');
-require_once(DUPLICATOR____PATH . '/classes/net/class.ftp.curl.php');
-require_once(DUPLICATOR____PATH . '/classes/package/class.pack.runner.php');
-
-if (DUP_PRO_U::PHP55()) {
-    require_once(DUPLICATOR____PATH . '/lib/phpseclib/class.phpseclib.php');
-}
-
-if (DUP_PRO_StorageSupported::isOneDriveSupported()) {
-    require_once(DUPLICATOR____PATH . '/classes/net/class.u.onedrive.php');
-}
 
 // For those storage types that do not require any configuration ahead of time
 abstract class DUP_PRO_Storage_Types
@@ -1039,32 +1025,26 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
     public function get_type_text()
     {
-        $type_text = DUP_PRO_U::__('Unknown');
         switch ($this->storage_type) {
             case DUP_PRO_Storage_Types::Local:
-                $type_text = DUP_PRO_U::__('Local');
-                break;
+                return DUP_PRO_U::__('Local');
             case DUP_PRO_Storage_Types::Dropbox:
-                $type_text = DUP_PRO_U::__('Dropbox');
-                break;
+                return DUP_PRO_U::__('Dropbox');
             case DUP_PRO_Storage_Types::FTP:
-                $type_text = DUP_PRO_U::__('FTP');
-                break;
+                return DUP_PRO_U::__('FTP');
+            case DUP_PRO_Storage_Types::SFTP:
+                return DUP_PRO_U::__('SFTP');
             case DUP_PRO_Storage_Types::GDrive:
-                $type_text = DUP_PRO_U::__('Google Drive');
-                break;
+                return DUP_PRO_U::__('Google Drive');
             case DUP_PRO_Storage_Types::S3:
-                $type_text = $this->s3_is_amazon() ? DUP_PRO_U::__('Amazon S3') : DUP_PRO_U::__('S3-Compatible (Generic)');
-                break;
+                return $this->s3_is_amazon() ? DUP_PRO_U::__('Amazon S3') : DUP_PRO_U::__('S3-Compatible (Generic)');
             case DUP_PRO_Storage_Types::OneDrive:
-                $type_text = DUP_PRO_U::__('OneDrive (v0.1)');
-                break;
+                return DUP_PRO_U::__('OneDrive (v0.1)');
             case DUP_PRO_Storage_Types::OneDriveMSGraph:
-                $type_text = DUP_PRO_U::__('OneDrive');
-                break;
+                return DUP_PRO_U::__('OneDrive');
+            default:
+                return DUP_PRO_U::__('Unknown');
         }
-
-        return $type_text;
     }
 
     public function get_action_text()
@@ -1255,6 +1235,12 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
     }
 
 
+    /**
+     * Copies the package files from the default local storage to another local storage location
+     *
+     * @param DUP_PRO_Package $package
+     * @return void
+     */
     private function copy_to_local(DUP_PRO_Package $package, DUP_PRO_Package_Upload_Info $upload_info)
     {
         /* @var $upload_info DUP_PRO_Package_Upload_Info */
@@ -1331,10 +1317,10 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
     private function copy_to_dropbox(DUP_PRO_Package $package, DUP_PRO_Package_Upload_Info $upload_info)
     {
-        $source_archive_filepath = $package->Archive->getSafeFilePath();
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        $source_archive_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 // $dropbox = DUP_PRO_Storage_Entity::get_raw_dropbox_client(false);
                 $dropbox = $this->get_dropbox_client(false);
                 //test only
@@ -1460,10 +1446,10 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
         /* @var $package DUP_PRO_Package */
 
-        $source_archive_filepath = $package->Archive->getSafeFilePath();
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        $source_archive_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 $onedrive = $this->get_onedrive_client();
                 $onedrive_archive_path = basename($source_archive_filepath);
                 $onedrive_archive_path = $this->get_sanitized_storage_folder() . $onedrive_archive_path;
@@ -1643,11 +1629,11 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
         /* @var $package DUP_PRO_Package */
 
-        $source_archive_filepath   = $package->Archive->getSafeFilePath();
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
+        $source_archive_filepath   = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
         $dest_installer_filename = $package->Installer->get_orig_filename();
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 try {
                     /* @var $google_client Duplicator_Pro_Google_Client */
                     $google_client = $this->get_full_google_client();
@@ -1846,10 +1832,10 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
         /* @var $package DUP_PRO_Package */
         DUP_PRO_LOG::trace("Copying to S3");
-        $source_archive_filepath   = $package->Archive->getSafeFilePath();
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        $source_archive_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 /* @var $s3_client DuplicatorPro\Aws\S3\S3Client */
                 $s3_client = $this->get_full_s3_client();
                 try {
@@ -2014,13 +2000,12 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
 
         /* @var $package DUP_PRO_Package */
         DUP_PRO_LOG::trace("copying to ftp");
-        $source_archive_filepath = $package->Archive->getSafeFilePath();
+        $source_archive_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
         // $source_archive_filepath = DUP_PRO_U::$PLUGIN_DIRECTORY . '/lib/DropPHP/Poedit-1.6.4.2601-setup.bin';
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
 
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
-
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 if ($this->ftp_use_curl) {
                     $ftp_client = new DUP_PRO_FTPcURL(
                         $this->ftp_server,
@@ -2163,10 +2148,10 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
     private function copy_to_sftp(DUP_PRO_Package $package, DUP_PRO_Package_Upload_Info $upload_info)
     {
         DUP_PRO_LOG::trace("copying to sftp");
-        $source_archive_filepath = $package->Archive->getSafeFilePath();
-        $source_installer_filepath = $package->Installer->get_safe_filepath();
-        if (file_exists($source_archive_filepath)) {
-            if (file_exists($source_installer_filepath)) {
+        $source_archive_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive);
+        $source_installer_filepath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Installer);
+        if ($source_archive_filepath !== false) {
+            if ($source_installer_filepath !== false) {
                 try {
                     $storage_folder         = $this->sftp_storage_folder;
                     $server                 = $this->sftp_server;
@@ -2940,7 +2925,7 @@ class DUP_PRO_Storage_Entity extends DUP_PRO_JSON_Entity_Base
         $default_local_storage->id                   = DUP_PRO_Virtual_Storage_IDs::Default_Local;
         $default_local_storage->storage_type         = DUP_PRO_Storage_Types::Local;
         $default_local_storage->local_storage_folder = DUPLICATOR_PRO_SSDIR_PATH;
-        $default_local_storage->local_max_files      = $global->max_default_store_files;
+        $default_local_storage->local_max_files       = $global->max_default_store_files;
         $default_local_storage->purge_package_record = $global->purge_default_package_record;
         $default_local_storage->editable             = false;
         return $default_local_storage;

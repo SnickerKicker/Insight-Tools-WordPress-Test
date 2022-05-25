@@ -2,10 +2,6 @@
 
 defined("ABSPATH") or die("");
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/net/class.u.s3.php');
-
 class DUP_PRO_System_Checker
 {
     const SYSTEM_CHECK_PERIOD_IN_SEC = 86400;  // 24 hours

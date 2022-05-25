@@ -16,6 +16,7 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 require_once(DUPLICATOR____PATH . '/classes/host/interface.host.php');
 require_once(DUPLICATOR____PATH . '/classes/host/class.godaddy.host.php');
 require_once(DUPLICATOR____PATH . '/classes/host/class.wpengine.host.php');
+require_once(DUPLICATOR____PATH . '/classes/host/class.cloudways.host.php');
 require_once(DUPLICATOR____PATH . '/classes/host/class.wordpresscom.host.php');
 require_once(DUPLICATOR____PATH . '/classes/host/class.liquidweb.host.php');
 require_once(DUPLICATOR____PATH . '/classes/host/class.pantheon.host.php');
@@ -25,6 +26,7 @@ class DUP_PRO_Custom_Host_Manager
 {
     const HOST_GODADDY      = 'godaddy';
     const HOST_WPENGINE     = 'wpengine';
+    const HOST_CLOUDWAYS    = 'cloudways';
     const HOST_WORDPRESSCOM = 'wordpresscom';
     const HOST_LIQUIDWEB    = 'liquidweb';
     const HOST_PANTHEON     = 'pantheon';
@@ -69,6 +71,7 @@ class DUP_PRO_Custom_Host_Manager
     private function __construct()
     {
         $this->customHostings[DUP_PRO_WPEngine_Host::getIdentifier()]     = new DUP_PRO_WPEngine_Host();
+        $this->customHostings[DUP_PRO_Cloudways_Host::getIdentifier()]    = new DUP_PRO_Cloudways_Host();
         $this->customHostings[DUP_PRO_GoDaddy_Host::getIdentifier()]      = new DUP_PRO_GoDaddy_Host();
         $this->customHostings[DUP_PRO_WordpressCom_Host::getIdentifier()] = new DUP_PRO_WordpressCom_Host();
         $this->customHostings[DUP_PRO_Liquidweb_Host::getIdentifier()]    = new DUP_PRO_Liquidweb_Host();
@@ -115,6 +118,10 @@ class DUP_PRO_Custom_Host_Manager
         }
 
         if ($this->isHosting(self::HOST_WPENGINE)) {
+            return true;
+        }
+
+        if ($this->isHosting(self::HOST_CLOUDWAYS)) {
             return true;
         }
 

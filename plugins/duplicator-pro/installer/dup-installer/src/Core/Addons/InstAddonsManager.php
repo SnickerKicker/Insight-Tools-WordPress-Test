@@ -4,7 +4,7 @@
  * Class that collects the functions of initial checks on the requirements to run the plugin
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 

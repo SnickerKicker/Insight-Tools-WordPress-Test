@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -258,8 +258,8 @@ class SnapIO
      */
     public static function fopen($filepath, $mode, $throwOnError = true)
     {
-        if (strlen($filepath) > SnapOS::maxPathLen()) {
-            throw new Exception('Skipping a file that exceeds allowed max path length [' . SnapOS::maxPathLen() . ']. File: ' . $filepath);
+        if (strlen($filepath) > PHP_MAXPATHLEN) {
+            throw new Exception('Skipping a file that exceeds allowed max path length [' . PHP_MAXPATHLEN . ']. File: ' . $filepath);
         }
 
         if (SnapString::startsWith($mode, 'w') || SnapString::startsWith($mode, 'c') || file_exists($filepath)) {
@@ -350,7 +350,6 @@ class SnapIO
      * @param string   $string fwrite string
      *
      * @return int bytes written
-     *
      */
     public static function fwrite($handle, $string)
     {
@@ -831,8 +830,8 @@ class SnapIO
      */
     public static function mkdir($path, $mode = 0777, $recursive = false, $context = null)
     {
-        if (strlen($path) > SnapOS::maxPathLen()) {
-            throw new Exception('Skipping a file that exceeds allowed max path length [' . SnapOS::maxPathLen() . ']. File: ' . $path);
+        if (strlen($path) > PHP_MAXPATHLEN) {
+            throw new Exception('Skipping a file that exceeds allowed max path length [' . PHP_MAXPATHLEN . ']. File: ' . $path);
         }
 
         if (!file_exists($path)) {
@@ -1200,6 +1199,60 @@ class SnapIO
         }
         fclose($f);
         return trim($output);
+    }
+
+    /**
+     * @param $filepath     string path to file to be downloaded
+     * @param $downloadName string  name to be downloaded as
+     * @param $bufferSize   int file chunks to be served
+     * @param $limitRate    bool if set to true the download rate will be limited to $bufferSize/seconds
+     * @throws Exception
+     * @return void
+     */
+    public static function serveFileForDownload($filepath, $downloadName, $bufferSize = 0, $limitRate = false)
+    {
+        // Process download
+        if (!file_exists($filepath)) {
+            throw new Exception(\DUP_PRO_U::__("File does not exist!"));
+        }
+
+        if (!is_file($filepath)) {
+            throw new Exception(\DUP_PRO_U::__("'$filepath' is not a file!"));
+        }
+
+        // Clean output buffer
+        if (ob_get_level() !== 0 && @ob_end_clean() === false) {
+            @ob_clean();
+        }
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($filepath));
+        flush(); // Flush system output buffer
+
+        if ($bufferSize <= 0) {
+            readfile($filepath);
+            exit;
+        }
+
+        $fp = @fopen($filepath, 'r');
+        if (!is_resource($fp)) {
+            throw new Exception('Fail to open the file ' . $filepath);
+        }
+
+        while (!feof($fp) && ($data = fread($fp, $bufferSize)) !== false) {
+            echo $data;
+
+            if ($limitRate) {
+                sleep(1);
+            }
+        }
+        @fclose($fp);
+        exit;
     }
 
     /**

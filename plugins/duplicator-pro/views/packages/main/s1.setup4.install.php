@@ -7,18 +7,8 @@
     table.dpro-install-tbl td{padding:4px}
     table.dpro-install-setup {width:100%}
     table.dpro-install-setup tr{vertical-align: top}
-
-    div.secure-pass-area {display:none}
-    input#secure-pass{width:300px; margin: 3px 0 5px 0}
-    label.secure-pass-lbl {display:inline-block; width:125px}
     div#dpro-pack-installer-panel div.tabs-panel{min-height:150px}
     div.dpro-panel-optional-txt {color:maroon}
-    div#dpro-pass-toggle {position: relative; margin:8px 0 0 0; width:243px}
-    input#secure-pass {border-radius:4px 0 0 4px; width:217px; min-height: auto; margin:0; padding: 0 4px;}
-
-
-    span#dpro-install-secure-lock {color:#A62426; display:none; font-size:14px}
-    span#dpro-install-secure-unlock {color:#A62426; display:none; font-size:14px}
 </style>
 
 <!-- ===================
@@ -26,8 +16,6 @@ INSTALLER -->
 <div class="dup-box">
     <div class="dup-box-title">
         <i class="fa fa-bolt fa-sm"></i> <?php DUP_PRO_U::esc_html_e('Installer') ?>
-        <span id="dpro-install-secure-lock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is on') ?>"><i class="fa fa-lock fa-sm"></i> </span>
-        <span id="dpro-install-secure-unlock" title="<?php DUP_PRO_U::esc_attr_e('Installer password protection is off') ?>"><i class="fa fa-unlock fa-sm"></i> </span>
         <button class="dup-box-arrow">
             <span class="screen-reader-text"><?php DUP_PRO_U::esc_html_e('Toggle panel:') ?> <?php DUP_PRO_U::esc_html_e('Installer Settings') ?></span>
         </button>
@@ -84,30 +72,6 @@ INSTALLER -->
                         <a href="admin.php?page=duplicator-pro-settings&tab=package&sub=brand"><?php DUP_PRO_U::esc_html_e("Enable Branding"); ?></a>
                     <?php endif; ?>
                     <br/><br/>
-                </td>
-            </tr>
-            <tr>
-                <td><b><?php DUP_PRO_U::esc_html_e("Security") ?>:</b></td>
-                <td>
-                    <?php
-                    $dup_install_secure_pass = isset($Package->Installer->OptsSecurePass) ? $Package->Installer->OptsSecurePass : '';
-                    ?>
-                    <input type="checkbox" name="secure-on" id="secure-on" onclick="DupPro.Pack.EnableInstallerPassword()" />
-                    <label for="secure-on"><?php DUP_PRO_U::esc_html_e("Enable password protection") ?></label>
-                    <i class="fas fa-question-circle fa-sm"
-                       data-tooltip-title="<?php DUP_PRO_U::esc_attr_e("Security"); ?>"
-                       data-tooltip="<?php
-                        DUP_PRO_U::esc_attr_e('Enabling this option will allow for basic password protection on the installer. Before running the installer the '
-                           . 'password below must be entered before proceeding with an install.  This password is a general deterrent and should not be substituted for properly '
-                           . 'keeping your files secure.  Be sure to remove all installer files when the install process is completed.');
-                        ?>"></i>
-                    <br/>
-
-                    <div id="dpro-pass-toggle">
-                        <input type="password" name="secure-pass" id="secure-pass" required="required" value="<?php echo $dup_install_secure_pass; ?>" />
-                        <button type="button" id="secure-btn" class="pass-toggle" onclick="DupPro.Pack.ToggleInstallerPassword()" title="<?php DUP_PRO_U::esc_attr_e('Show/Hide Password'); ?>"><i class="fas fa-eye fa-sm"></i></button>
-                    </div>
-                    <br/>
                 </td>
             </tr>
         </table>
@@ -239,38 +203,6 @@ INSTALLER -->
                 }
             });
         };
-
-        DupPro.Pack.EnableInstallerPassword = function ()
-        {
-            var $button = $('#secure-btn');
-            if ($('#secure-on').is(':checked')) {
-                $('#secure-pass').attr('readonly', false);
-                $('#secure-pass').attr('required', 'true').focus();
-                $('#dpro-install-secure-lock').show();
-                $('#dpro-install-secure-unlock').hide();
-                $button.prop('disabled', false);
-            } else {
-                $('#secure-pass').removeAttr('required');
-                $('#secure-pass').attr('readonly', true);
-                $('#dpro-install-secure-lock').hide();
-                $('#dpro-install-secure-unlock').show();
-                $button.prop('disabled', true);
-            }
-        };
-
-        DupPro.Pack.ToggleInstallerPassword = function ()
-        {
-            var $input = $('#secure-pass');
-            var $button = $('#secure-btn');
-            if (($input).attr('type') == 'text') {
-                $input.prop('type', 'password');
-                $button.html('<i class="fas fa-eye fa-sm"></i>');
-            } else {
-                $input.prop('type', 'text');
-                $button.html('<i class="fas fa-eye-slash fa-sm"></i>');
-            }
-        }
-
     <?php if ($is_freelancer_plus) : ?>
     // brand-preview
     var $brand = $("#brand"),
@@ -299,11 +231,4 @@ INSTALLER -->
 
 
     }(window.jQuery));
-
-    //INIT
-    jQuery(document).ready(function ()
-    {
-        //DupPro.Pack.ToggleInstallerPassword();
-        //DupPro.Pack.EnableInstallerPassword();
-    });
 </script>

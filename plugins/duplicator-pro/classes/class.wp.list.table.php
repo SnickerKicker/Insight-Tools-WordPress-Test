@@ -847,7 +847,7 @@ class DUP_PRO_WP_List_Table
             );
         }
         $html_total_pages = sprintf("<span class='total-pages'>%s</span>", number_format_i18n($total_pages));
-        $page_links[] = $total_pages_before . sprintf(_x('%1$s of %2$s', 'paging'), $html_current_page, $html_total_pages) . $total_pages_after;
+        $page_links[] = $total_pages_before . sprintf(_x('%1$s of %2$s', 'paging', 'duplicator-pro'), $html_current_page, $html_total_pages) . $total_pages_after;
         if ($disable_next) {
             $page_links[] = '<span class="tablenav-pages-navspan button disabled" aria-hidden="true">&rsaquo;</span>';
         } else {

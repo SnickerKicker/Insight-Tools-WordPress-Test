@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 namespace Duplicator\Ajax;
@@ -12,6 +12,7 @@ use DUP_PRO_U;
 use Duplicator\Ajax\AjaxWrapper;
 use Duplicator\Ajax\FileTransfer\ImportUpload;
 use Duplicator\Controllers\ImportPageController;
+use Duplicator\Libs\Snap\SnapUtil;
 use Exception;
 
 class ServicesImport extends AbstractAjaxService
@@ -27,6 +28,7 @@ class ServicesImport extends AbstractAjaxService
         $this->addAjaxCall('wp_ajax_duplicator_pro_import_package_delete', 'deletePackage');
         $this->addAjaxCall('wp_ajax_duplicator_pro_import_set_view_mode', 'setViewMode');
         $this->addAjaxCall('wp_ajax_duplicator_pro_import_remote_download', 'remoteDownload');
+        $this->addAjaxCall('wp_ajax_duplicator_pro_import_set_archive_password', 'setArchivePassword');
     }
 
     /**
@@ -162,5 +164,51 @@ class ServicesImport extends AbstractAjaxService
     public function setViewMode()
     {
         AjaxWrapper::json(array(__CLASS__, 'setViewModeCallback'), 'duplicator_pro_import_set_view_mode', $_POST['nonce'], 'import');
+    }
+
+    /**
+     * Set import view mode callback
+     *
+     * @return string
+     */
+    public static function setArchivePasswordCallback()
+    {
+        $result = [];
+
+        $archiveFile = filter_input(INPUT_POST, 'archive', FILTER_CALLBACK, ['options' => [SnapUtil::class, 'sanitizeNSCharsNewlineTabs']]);
+        $password    = filter_input(INPUT_POST, 'password', FILTER_CALLBACK, ['options' => [SnapUtil::class, 'sanitizeNSCharsNewlineTrim']]);
+
+        if (preg_match(DUPLICATOR_PRO_ARCHIVE_REGEX_PATTERN, basename($archiveFile)) !== 1) {
+            throw new Exception('Invalid archive name "' . $archiveFile . '"');
+        }
+
+        $importObj = new DUP_PRO_Package_Importer($archiveFile);
+        $errMsg    = '';
+        if (!$importObj->encryptCheck($errMs)) {
+            throw new Exception($errMsg);
+        } elseif ($importObj->passwordCheck($password)) {
+            $importObj->updatePasswordCookie();
+            $uploader = new ImportUpload(ImportUpload::MODE_UPLOADED, $archiveFile);
+            $result   = $uploader->exec();
+        } else {
+            throw new Exception('Invalid password');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Set import view mode action
+     *
+     * @return void
+     */
+    public function setArchivePassword()
+    {
+        AjaxWrapper::json(
+            array(__CLASS__, 'setArchivePasswordCallback'),
+            'duplicator_pro_import_set_archive_password',
+            $_POST['nonce'],
+            'import'
+        );
     }
 }

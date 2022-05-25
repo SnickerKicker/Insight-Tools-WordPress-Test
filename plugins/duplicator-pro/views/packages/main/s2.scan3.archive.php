@@ -1,4 +1,7 @@
 <?php
+
+use Duplicator\Installer\Core\Descriptors\ArchiveConfig;
+
 defined("ABSPATH") or die("");
 
 /** 
@@ -25,8 +28,16 @@ ARCHIVE
 ================================================================ -->
 <div class="details-title">
     <i class="far fa-file-archive fa-sm fa-fw"></i>&nbsp;<?php DUP_PRO_U::esc_html_e('Archive'); ?>
-    <sup class="dup-small-ext-type"><?php echo $global->get_archive_extension_type(); ?></sup>
-    <div class="dup-more-details" onclick="DupPro.Pack.showDetailsDlg()" title="<?php DUP_PRO_U::esc_attr_e('Show Scan Details');?>"><i class="far fa-window-maximize"></i></div>
+    <sup class="dup-small-ext-type">
+        <?php
+            $langPassRequired = DUP_PRO_U::__('Requires Password to Extract');
+            echo $Package->Installer->isSecure() ? "<i class='fas fa-lock fa-fw fa-sm' title='{$langPassRequired}'></i>&nbsp;" : "";
+            echo $global->get_archive_extension_type();
+        ?>
+    </sup>
+    <div class="dup-more-details" onclick="DupPro.Pack.showDetailsDlg()" title="<?php DUP_PRO_U::esc_attr_e('Show Scan Details');?>">
+        <i class="far fa-window-maximize"></i>
+    </div>
 </div>
 
 <div class="scan-header scan-item-first">
@@ -417,7 +428,7 @@ Restore only package -->
                                    data-tooltip="<?php DUP_PRO_U::esc_html_e('The Drag and Drop import method is a new way to migrate packages you can find under Duplicator Pro > Tools > Import.'); ?>">
                                    <u><?php DUP_PRO_U::esc_html_e("Drag and Drop import"); ?></u>.&nbsp;
                                 </i>
-                                <?php DUP_PRO_U::esc_html_e("However it can still be use it to perform a database migration."); ?>
+                                <?php DUP_PRO_U::esc_html_e("However it can still be used it to perform a database migration."); ?>
                             </span>
                             
                             {{#if ARC.Status.IsDBOnly}}
@@ -622,7 +633,7 @@ DIALOGS:
 ========================================== -->
 <?php
     $alert1 = new DUP_PRO_UI_Dialog();
-    $alert1->height     = 625;
+    $alert1->height     = 645;
     $alert1->width      = 600;
     $alert1->title      = DUP_PRO_U::__('Scan Details');
     $alert1->message    = "<div id='arc-details-dlg'></div>";
@@ -653,9 +664,31 @@ DIALOG: Scan Results -->
     <!-- PACKAGE -->
     <h2><i class="fa fa-archive fa-sm"></i> <?php DUP_PRO_U::esc_html_e('Package');?></h2>
     <div class="info">
-        <label><?php DUP_PRO_U::esc_html_e('Name');?>:</label> <?php echo esc_html($_POST['package-name']); ?><br/>
-        <label><?php DUP_PRO_U::esc_html_e('Notes');?>:</label> <?php echo strlen($_POST['package-notes']) ? esc_html($_POST['package-notes']) : DUP_PRO_U::__('- no notes -') ; ?> <br/>
-        <label><?php DUP_PRO_U::esc_html_e('Archive Engine');?>:</label> <a href="?page=duplicator-pro-settings&tab=package" target="_blank"><?php echo esc_html($global->get_archive_engine()); ?></a>
+        <label><?php DUP_PRO_U::esc_html_e('Name');?>:</label>
+        <?php echo esc_html($_POST['package-name']); ?><br/>
+        
+        <label><?php DUP_PRO_U::esc_html_e('Notes');?>:</label>
+        <?php echo strlen($_POST['package-notes']) ? esc_html($_POST['package-notes']) : DUP_PRO_U::__('- no notes -') ; ?> <br/>
+
+        <label><?php DUP_PRO_U::esc_html_e('Archive Engine');?>:</label>
+        <a href="?page=duplicator-pro-settings&tab=package" target="_blank"><?php echo esc_html($global->get_archive_engine()); ?></a> <br/>
+
+        <label><?php DUP_PRO_U::esc_html_e('Encryption');?>:</label>
+        <?php 
+            switch ($_POST['secure-on']) {
+                case ArchiveConfig::SECURE_MODE_NONE:
+                    esc_html_e('Disabled', 'duplicator-pro');
+                    break;
+                case ArchiveConfig::SECURE_MODE_INST_PWD:
+                    esc_html_e('Installer password (Password Required)', 'duplicator-pro');
+                    break;    
+                case ArchiveConfig::SECURE_MODE_ARC_ENCRYPT:
+                    esc_html_e('Archive encryption (Password Required)', 'duplicator-pro');
+                    break;
+                default:
+                    throw new Exception('Invalid secure mode');
+            }
+        ?><br/>
     </div><br/>
 
     <!-- DATABASE -->

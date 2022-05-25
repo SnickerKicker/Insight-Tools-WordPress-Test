@@ -2,14 +2,16 @@
 
 namespace Duplicator\Libs\DupArchive\Info;
 
+use Duplicator\Libs\DupArchive\Headers\DupArchiveFileHeader;
+
 class DupArchiveExpanderInfo
 {
-    public $archiveHandle       = null;
+    public $archiveHandle = null;
+    /** @var DupArchiveFileHeader */
     public $currentFileHeader   = null;
     public $destDirectory       = null;
     public $directoryWriteCount = 0;
     public $fileWriteCount      = 0;
-    public $isCompressed        = false;
     public $enableWrite         = false;
 
     /**

@@ -16,7 +16,6 @@ use Duplicator\Libs\Snap\SnapDB;
 use Duplicator\Libs\Snap\SnapURL;
 use Duplicator\Libs\Snap\SnapWP;
 
-require_once DUPLICATOR____PATH . '/classes/entities/class.global.entity.php';
 require_once dirname(__FILE__) . '/class.pack.database.build.progress.php';
 require_once dirname(__FILE__) . '/class.pack.database.build.iterator.php';
 require_once dirname(__FILE__) . '/class.pack.database.info.php';
@@ -82,6 +81,17 @@ class DUP_PRO_Database
         }
         $this->throttleDelayInUs = $global->getMicrosecLoadReduction();
         self::setTimeout();
+    }
+
+    /**
+     * Filter props on json encode
+     *
+     * @return strng[]
+     */
+    public function __sleep()
+    {
+        $props = array_keys(get_object_vars($this));
+        return array_diff($props, array('traceLogEnabled', 'Package', 'throttleDelayInUs'));
     }
 
     /**

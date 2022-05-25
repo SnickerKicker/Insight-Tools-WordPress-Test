@@ -22,31 +22,49 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
 use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapUtil;
+use Duplicator\Utils\ZipArchiveExtended;
 
-class DUP_PRO_ZipArchive extends DUP_PRO_Archive
+class DUP_PRO_ZipArchive
 {
-    private $global;
-    private $optMaxBuildTimeOn       = true;
-    private $maxBuildTimeFileSize    = 100000;
-    private $urlFAQ = '';
-    private $throttleDelayInUs = 0;
-    public function __construct()
+    /** @var DUP_PRO_Global_Entity */
+    private $global               = null;
+    private $optMaxBuildTimeOn    = true;
+    private $maxBuildTimeFileSize = 100000;
+    private $throttleDelayInUs    = 0;
+    /** @var DUP_PRO_Package */
+    private $package = null;
+    /** @var ZipArchiveExtended */
+    private $zipArchive = null;
+
+    /**
+     * Class constructor
+     *
+     * @param DUP_PRO_Package $package
+     */
+    public function __construct(DUP_PRO_Package $package)
     {
         $this->global            = DUP_PRO_Global_Entity::get_instance();
         $this->optMaxBuildTimeOn = ($this->global->max_package_runtime_in_min > 0);
         $this->urlFAQ            = 'https://snapcreek.com/duplicator/docs/faqs-tech';
         $this->throttleDelayInUs        = $this->global->getMicrosecLoadReduction();
+
+        $this->package = $package;
+        $this->zipArchive = new ZipArchiveExtended($this->package->StorePath . '/' . $this->package->Archive->File);
+
+        $password = $this->package->Archive->getArchivePassword();
+        if (strlen($password) > 0) {
+            $this->zipArchive->setEncrypt(true, $password);
+        }
     }
 
     /**
      * Creates the zip file and adds the SQL file to the archive
      *
-     * @param DUP_PRO_Archive $archive A copy of the current archive object
      * @param DUP_PRO_Build_Progress $build_progress A copy of the current build progress
      *
      * @returns bool     Returns true if the process was successful
      */
-    public function create(DUP_PRO_Archive $archive, DUP_PRO_Build_Progress $build_progress)
+    public function create(DUP_PRO_Build_Progress $build_progress)
     {
         try {
             if (!class_exists('ZipArchive')) {
@@ -54,11 +72,11 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 return false;
             }
 
-            $archive->Package->safe_tmp_cleanup(true);
-            if ($archive->Package->ziparchive_mode == DUP_PRO_ZipArchive_Mode::SingleThread) {
-                return $this->createSingleThreaded($archive, $build_progress);
+            $this->package->safe_tmp_cleanup(true);
+            if ($this->package->ziparchive_mode == DUP_PRO_ZipArchive_Mode::SingleThread) {
+                return $this->createSingleThreaded($build_progress);
             } else {
-                return $this->createMultiThreaded($archive, $build_progress);
+                return $this->createMultiThreaded($build_progress);
             }
         } catch (Exception $ex) {
             DUP_PRO_Log::error("Runtime error in class-package-archive-zip.php.", "Exception: {$ex}");
@@ -67,26 +85,26 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
 
     /**
      * Creates the zip file using a single thread approach
-     *
-     * @param DUP_PRO_Archive $archive A copy of the current archive object
+     * 
      * @param DUP_PRO_Build_Progress $build_progress A copy of the current build progress
      *
      * @returns bool     Returns true if the process was successful
      */
-    private function createSingleThreaded(DUP_PRO_Archive $archive, DUP_PRO_Build_Progress $build_progress)
+    private function createSingleThreaded(DUP_PRO_Build_Progress $build_progress)
     {
         $countFiles      = 0;
-        $compressDir = rtrim(SnapIO::safePath($archive->PackDir), '/');
-        $sqlPath     = $archive->Package->StorePath . '/' . $archive->Package->Database->File;
-        $zipPath     = $archive->Package->StorePath . '/' . $archive->File;
-        $zipArchive  = new ZipArchive();
-        $filterDirs  = empty($archive->FilterDirs)  ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterDirs));
-        $filterFiles = empty($archive->FilterFiles) ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterFiles));
-        $filterExts  = empty($archive->FilterExts)  ? 'not set' : $archive->FilterExts;
-        $filterOn    = ($archive->FilterOn) ? 'ON' : 'OFF';
+        $compressDir = rtrim(SnapIO::safePath($this->package->Archive->PackDir), '/');
+        $sqlPath     = $this->package->StorePath . '/' . $this->package->Database->File;
+        $zipPath     = $this->package->StorePath . '/' . $this->package->Archive->File;
+        $filterDirs  = empty($this->package->Archive->FilterDirs)  ? 'not set' : rtrim(str_replace(';', "\n\t", $this->package->Archive->FilterDirs));
+        $filterFiles = empty($this->package->Archive->FilterFiles) ? 'not set' : rtrim(str_replace(';', "\n\t", $this->package->Archive->FilterFiles));
+        $filterExts  = empty($this->package->Archive->FilterExts)  ? 'not set' : $this->package->Archive->FilterExts;
+        $filterOn    = ($this->package->Archive->FilterOn) ? 'ON' : 'OFF';
         $validation  = ($this->global->ziparchive_validation) ? 'ON' : 'OFF';
         $compression = $build_progress->current_build_compression ? 'ON' : 'OFF';
-//PREVENT RETRIES PAST 3:  Default is 10 (DUP_PRO_Constants::MAX_BUILD_RETRIES)
+
+        $this->zipArchive->setCompressed($build_progress->current_build_compression);
+        //PREVENT RETRIES PAST 3:  Default is 10 (DUP_PRO_Constants::MAX_BUILD_RETRIES)
         //since this is ST Mode no reason to keep trying like MT
         if ($build_progress->retries >= 3) {
             $err = DUP_PRO_U::__('Package build appears stuck so marking package as failed. Is the PHP or Web Server timeouts too low?');
@@ -98,12 +116,12 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 DUP_PRO_Log::infoTrace("**NOTICE: Retry count at: {$build_progress->retries}");
             }
             $build_progress->retries++;
-            $archive->Package->update();
+            $this->package->update();
         }
 
         //LOAD SCAN REPORT
         try {
-            $scanReport = $archive->Package->getScanReportFromJson(DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$archive->Package->NameHash}_scan.json");
+            $scanReport = $this->package->getScanReportFromJson(DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$this->package->NameHash}_scan.json");
         } catch (DUP_PRO_NoScanFileException $ex) {
             DUP_PRO_LOG::trace("**** scan file doesn't exist!!");
             DUP_PRO_Log::error($ex->getMessage(), '', false);
@@ -170,23 +188,22 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         //ST: ADD DATABASE FILE
         //============================================
         if ($build_progress->archive_has_database === false) {
-            if ($zipArchive->open($zipPath, ZipArchive::CREATE)) {
-                $sql_ark_file_path = $archive->Package->get_sql_ark_file_path();
-                $isSQLInZip = DUP_PRO_Zip_U::addFileToZipArchive($zipArchive, $sqlPath, $sql_ark_file_path, $build_progress->current_build_compression);
-                if ($isSQLInZip) {
-                    DUP_PRO_Log::info("SQL ADDED: " . basename($sqlPath));
-                } else {
-                    DUP_PRO_Log::error("Unable to add database.sql to archive.", "SQL File Path [" . $sqlPath . "]", false);
-                    return $build_progress->failed = true;
-                }
-            } else {
+            if (!$this->zipArchive->open()) {
                 DUP_PRO_Log::error("Couldn't open $zipPath", '', false);
                 return $build_progress->failed = true;
             }
 
-            if ($zipArchive->close()) {
+            if ($this->zipArchive->addFile($sqlPath, $this->package->get_sql_ark_file_path())) {
+                DUP_PRO_Log::info("SQL ADDED: " . basename($sqlPath));
+            } else {
+                DUP_PRO_Log::error("Unable to add database.sql to archive.", "SQL File Path [" . $sqlPath . "]", false);
+                return $build_progress->failed = true;
+            }
+        
+
+            if ($this->zipArchive->close()) {
                 $build_progress->archive_has_database = true;
-                $archive->Package->update();
+                $this->package->update();
             } else {
                 $err = 'ZipArchive close failure during database.sql phase.';
                 $this->setDupArchiveSwitchFix($err);
@@ -200,24 +217,24 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         //Its really fast without files so no need to do status pushes or other checks in loop
         //============================================
         if ($build_progress->next_archive_dir_index < count($scanReport->ARC->Dirs)) {
-            if ($zipArchive->open($zipPath, ZipArchive::CREATE)) {
-                foreach ($scanReport->ARC->Dirs as $dir) {
-                    $emptyDir = $archive->getLocalDirPath($dir);
-                    DUP_PRO_Log::trace("ADD DIR TO ZIP: '{$emptyDir}'");
-                    if (! $zipArchive->addEmptyDir($emptyDir)) {
-                        if (empty($compressDir) || strpos($dir, rtrim($compressDir, '/')) != 0) {
-                            DUP_PRO_Log::infoTrace("WARNING: Unable to zip directory: '{$dir}'");
-                        }
-                    }
-                    $build_progress->next_archive_dir_index++;
-                }
-            } else {
+            if (!$this->zipArchive->open()) {
                 DUP_PRO_Log::error("Couldn't open $zipPath", '', false);
                 return $build_progress->failed = true;
             }
 
-            if ($zipArchive->close()) {
-                $archive->Package->update();
+            foreach ($scanReport->ARC->Dirs as $dir) {
+                $emptyDir = $this->package->Archive->getLocalDirPath($dir);
+                DUP_PRO_Log::trace("ADD DIR TO ZIP: '{$emptyDir}'");
+                if (!$this->zipArchive->addEmptyDir($emptyDir)) {
+                    if (empty($compressDir) || strpos($dir, rtrim($compressDir, '/')) != 0) {
+                        DUP_PRO_Log::infoTrace("WARNING: Unable to zip directory: '{$dir}'");
+                    }
+                }
+                $build_progress->next_archive_dir_index++;
+            }
+            
+            if ($this->zipArchive->close()) {
+                $this->package->update();
             } else {
                 $err = 'ZipArchive close failure during directory add phase.';
                 $this->setDupArchiveSwitchFix($err);
@@ -229,17 +246,17 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         //ST: ZIP FILES
         //============================================
         if ($build_progress->archive_built === false) {
-            if ($zipArchive->open($zipPath, ZipArchive::CREATE) === false) {
+            if ($this->zipArchive->open() === false) {
                 DUP_PRO_Log::error("Can not open zip file at: [{$zipPath}]", '', false);
                 return $build_progress->failed = true;
             }
 
             // Since we have to estimate progress in Single Thread mode
             // set the status when we start archiving just like Shell Exec
-            do_action('duplicator_pro_package_before_set_status', $archive->Package, DUP_PRO_PackageStatus::ARCSTART);
-            $archive->Package->Status = DUP_PRO_PackageStatus::ARCSTART;
-            $archive->Package->update();
-            do_action('duplicator_pro_package_after_set_status', $archive->Package, DUP_PRO_PackageStatus::ARCSTART);
+            do_action('duplicator_pro_package_before_set_status', $this->package, DUP_PRO_PackageStatus::ARCSTART);
+            $this->package->Status = DUP_PRO_PackageStatus::ARCSTART;
+            $this->package->update();
+            do_action('duplicator_pro_package_after_set_status', $this->package, DUP_PRO_PackageStatus::ARCSTART);
             $total_file_size = 0;
             $total_file_count_trip = ($scanReport->ARC->UFileCount + 1000);
             foreach ($scanReport->ARC->Files as $file) {
@@ -257,15 +274,11 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                     }
                 }
 
-                $local_name = $archive->getLocalFilePath($file);
-                if (!$zipArchive->addFile($file, $local_name)) {
+                $local_name = $this->package->Archive->getLocalFilePath($file);
+                if (!$this->zipArchive->addFile($file, $local_name)) {
                     // Assumption is that we continue?? for some things this would be fatal others it would be ok - leave up to user
                     DUP_PRO_Log::info("WARNING: Unable to zip file: {$file}");
                     continue;
-                }
-
-                if (SnapUtil::isPHP7Plus() && ($build_progress->current_build_compression === false)) {
-                    $zipArchive->setCompressionName($local_name, ZipArchive::CM_STORE);
                 }
 
                 $total_file_size += filesize($file);
@@ -285,12 +298,11 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
             //START ARCHIVE CLOSE
             $total_file_size_easy = DUP_PRO_U::byteSize($total_file_size);
             DUP_PRO_LOG::trace("Doing final zip close after adding $total_file_size_easy ({$total_file_size})");
-            DUP_PRO_Log::info(print_r($zipArchive, true));
-            if ($zipArchive->close()) {
+            if ($this->zipArchive->close()) {
                 DUP_PRO_LOG::trace("Final zip closed.");
                 $build_progress->next_archive_file_index = $countFiles;
                 $build_progress->archive_built = true;
-                $archive->Package->update();
+                $this->package->update();
             } else {
                 if ($this->global->ziparchive_validation === false) {
                     $this->global->ziparchive_validation = true;
@@ -315,11 +327,10 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
             DUP_PRO_Log::info("FINAL SIZE: " . DUP_PRO_U::byteSize($zipFileSize));
             DUP_PRO_Log::info("ARCHIVE RUNTIME: {$timerAllSum}");
 
-            if ($zipArchive->open($zipPath)) {
-                $archive->file_count = $zipArchive->numFiles;
-                DUP_PRO_LOG::traceObject('final zip archive dump', $zipArchive);
-                $archive->Package->update();
-                $zipArchive->close();
+            if ($this->zipArchive->open()) {
+                $this->package->Archive->file_count = $this->zipArchive->getNumFiles();
+                $this->package->update();
+                $this->zipArchive->close();
             } else {
                 DUP_PRO_Log::error("ZipArchive open failure.", "Encountered when retrieving final archive file count.", '', false);
                 return $build_progress->failed = true;
@@ -332,32 +343,31 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
     /**
      * Creates the zip file using a multi-thread approach
      *
-     * @param DUP_PRO_Archive $archive A copy of the current archive object
      * @param DUP_PRO_Build_Progress $build_progress A copy of the current build progress
      *
      * @returns bool    Returns true if the process was successful
      */
-    private function createMultiThreaded(DUP_PRO_Archive $archive, DUP_PRO_Build_Progress $build_progress)
+    private function createMultiThreaded(DUP_PRO_Build_Progress $build_progress)
     {
         // profile ok
         $timed_out       = false;
         $countFiles      = 0;
-        $compressDir = rtrim(SnapIO::safePath($archive->PackDir), '/');
-        $sqlPath     = $archive->Package->StorePath . '/' . $archive->Package->Database->File;
-        $zipPath     = $archive->Package->StorePath . '/' . $archive->File;
-        $zipArchive  = new ZipArchive();
-        $filterDirs  = empty($archive->FilterDirs)  ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterDirs));
-        $filterFiles = empty($archive->FilterFiles) ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterFiles));
-        $filterExts  = empty($archive->FilterExts) ? 'not set' : $archive->FilterExts;
-        $filterOn    = ($archive->FilterOn) ? 'ON' : 'OFF';
+        $compressDir = rtrim(SnapIO::safePath($this->package->Archive->PackDir), '/');
+        $sqlPath     = $this->package->StorePath . '/' . $this->package->Database->File;
+        $zipPath     = $this->package->StorePath . '/' . $this->package->Archive->File;
+        $filterDirs  = empty($this->package->Archive->FilterDirs)  ? 'not set' : rtrim(str_replace(';', "\n\t", $this->package->Archive->FilterDirs));
+        $filterFiles = empty($this->package->Archive->FilterFiles) ? 'not set' : rtrim(str_replace(';', "\n\t", $this->package->Archive->FilterFiles));
+        $filterExts  = empty($this->package->Archive->FilterExts) ? 'not set' : $this->package->Archive->FilterExts;
+        $filterOn    = ($this->package->Archive->FilterOn) ? 'ON' : 'OFF';
         $compression = $build_progress->current_build_compression ? 'ON' : 'OFF';
-        $scanFilepath = DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$archive->Package->NameHash}_scan.json";
+        $this->zipArchive->setCompressed($build_progress->current_build_compression);
+        $scanFilepath = DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$this->package->NameHash}_scan.json";
 // end profile ok
 
         // profile ok
         //LOAD SCAN REPORT
         try {
-            $scanReport = $archive->Package->getScanReportFromJson($scanFilepath);
+            $scanReport = $this->package->getScanReportFromJson($scanFilepath);
         } catch (DUP_PRO_NoScanFileException $ex) {
             DUP_PRO_LOG::trace("**** scan file $scanFilepath doesn't exist!!");
             DUP_PRO_Log::error($ex->getMessage(), '', false);
@@ -395,7 +405,7 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         }
 
         // end profile ok
-
+        
         //============================================
         //MT: START ZIP & ADD SQL FILE
         //============================================
@@ -419,25 +429,21 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 return $build_progress->failed = true;
             }
 
-            // profile ok
-            if ($zipArchive->open($zipPath, ZipArchive::CREATE)) {
-                $sql_ark_file_path = $archive->Package->get_sql_ark_file_path();
-                $isSQLInZip = DUP_PRO_Zip_U::addFileToZipArchive($zipArchive, $sqlPath, $sql_ark_file_path, $build_progress->current_build_compression);
-                if ($isSQLInZip) {
-                    DUP_PRO_Log::info("SQL ADDED: " . basename($sqlPath));
-                } else {
-                    DUP_PRO_Log::error("Unable to add database.sql to archive.", "SQL File Path [" . $sqlPath . "]", false);
-                    return $build_progress->failed = true;
-                }
-            } else {
+            if (!$this->zipArchive->open()) {
                 DUP_PRO_Log::error("Couldn't open $zipPath", '', false);
                 return $build_progress->failed = true;
             }
 
-            if ($zipArchive->close()) {
-                $build_progress->archive_started    = true;
-                $build_progress->archive_start_time = DUP_PRO_U::getMicrotime();
-                $archive->Package->update();
+            if ($this->zipArchive->addFile($sqlPath, $this->package->get_sql_ark_file_path())) {
+                DUP_PRO_Log::info("SQL ADDED: " . basename($sqlPath));
+            } else {
+                DUP_PRO_Log::error("Unable to add database.sql to archive.", "SQL File Path [" . $sqlPath . "]", false);
+                return $build_progress->failed = true;
+            }
+
+            if ($this->zipArchive->close()) {
+                $build_progress->archive_has_database = true;
+                $this->package->update();
             } else {
                 $err = 'ZipArchive close failure during database.sql phase.';
                 $this->setDupArchiveSwitchFix($err);
@@ -451,12 +457,11 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         //Keep this loop tight: ZipArchive can handle over 10k dir entries in under 0.01 seconds.
         //Its really fast without files no need to do status pushes or other checks in loop
         //============================================
-        if ($zipArchive->open($zipPath, ZipArchive::CREATE)) {
-// profile ok
+        if ($this->zipArchive->open()) {
             foreach ($scanReport->ARC->Dirs as $dir) {
-                $emptyDir = $archive->getLocalDirPath($dir);
+                $emptyDir = $this->package->Archive->getLocalDirPath($dir);
                 DUP_PRO_Log::trace("ADD DIR TO ZIP: '{$emptyDir}'");
-                if (! $zipArchive->addEmptyDir($emptyDir)) {
+                if (!$this->zipArchive->addEmptyDir($emptyDir)) {
                     if (empty($compressDir) || strpos($dir, rtrim($compressDir, '/')) != 0) {
                         DUP_PRO_Log::infoTrace("WARNING: Unable to zip directory: '{$dir}'");
                     }
@@ -464,20 +469,18 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 $build_progress->next_archive_dir_index++;
             }
 
-            $archive->Package->update();
+            $this->package->update();
             if ($build_progress->timed_out($this->global->php_max_worker_time_in_sec)) {
                 $timed_out   = true;
                 $diff        = time() - $build_progress->thread_start_time;
                 DUP_PRO_LOG::trace("Timed out after hitting thread time of $diff {$this->global->php_max_worker_time_in_sec} so quitting zipping early in the directory phase");
             }
-            // end profile ok
         } else {
             DUP_PRO_Log::error("Couldn't open $zipPath", '', false);
             return $build_progress->failed = true;
         }
 
-        // profile ok
-        if ($zipArchive->close() === false) {
+        if ($this->zipArchive->close() === false) {
             $err = DUP_PRO_U::__('ZipArchive close failure during directory add phase.');
             $this->setDupArchiveSwitchFix($err);
             return $build_progress->failed = true;
@@ -500,7 +503,7 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 return $build_progress->failed = true;
             } else {
                 $build_progress->retries++;
-                $archive->Package->update();
+                $this->package->update();
             }
 
             $zip_is_open = false;
@@ -512,7 +515,7 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                 if ($zip_is_open || ($countFiles == $build_progress->next_archive_file_index)) {
                     if ($zip_is_open === false) {
                         DUP_PRO_LOG::trace("resuming archive building at file # $countFiles");
-                        if ($zipArchive->open($zipPath, ZipArchive::CREATE) === false) {
+                        if ($this->zipArchive->open($zipPath, ZipArchive::CREATE) === false) {
                             DUP_PRO_Log::error("Couldn't open $zipPath", '', false);
                             $build_progress->failed = true;
                             return true;
@@ -530,12 +533,9 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                             continue;
                     }
 
-                    $local_name = $archive->getLocalFilePath($file);
+                    $local_name = $this->package->Archive->getLocalFilePath($file);
                     $file_size  = filesize($file);
-                    $zip_status = $zipArchive->addFile($file, $local_name);
-                    if (SnapUtil::isPHP7Plus() && ($build_progress->current_build_compression === false)) {
-                        $zipArchive->setCompressionName($local_name, ZipArchive::CM_STORE);
-                    }
+                    $zip_status = $this->zipArchive->addFile($file, $local_name);
 
                     if ($zip_status) {
                         $total_file_size += $file_size;
@@ -552,12 +552,12 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                         DUP_PRO_LOG::trace("closing zip because ziparchive mode = {$this->global->ziparchive_mode} fd count = $used_zip_file_descriptor_count or incremental file size=$incremental_file_size and chunk size = $chunk_size_in_bytes");
                         $incremental_file_size           = 0;
                         $used_zip_file_descriptor_count  = 0;
-                        if ($zipArchive->close()) {
+                        if ($this->zipArchive->close()) {
                             $adjusted_percent = floor(DUP_PRO_PackageStatus::ARCSTART + ((DUP_PRO_PackageStatus::ARCDONE - DUP_PRO_PackageStatus::ARCSTART) * ($countFiles / (float) $total_file_count)));
                             $build_progress->next_archive_file_index = $countFiles;
                             $build_progress->retries                 = 0;
-                            $archive->Package->Status                = $adjusted_percent;
-                            $archive->Package->update();
+                            $this->package->Status                = $adjusted_percent;
+                            $this->package->update();
                             $zip_is_open                             = false;
                             DUP_PRO_LOG::trace("closed zip");
                         } else {
@@ -584,7 +584,7 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
                     //MT: MAX BUILD TIME (MINUTES)
                     //Only stop to check on larger files above 100K to avoid checking every single file
                     if ($file_size > $this->maxBuildTimeFileSize && $this->optMaxBuildTimeOn) {
-                        $elapsed_sec     = time() - $archive->Package->timer_start;
+                        $elapsed_sec     = time() - $this->package->timer_start;
                         $elapsed_minutes = $elapsed_sec / 60;
                         if ($elapsed_minutes > $this->global->max_package_runtime_in_min) {
                             DUP_PRO_LOG::trace("ZipArchive: Multi-thread max build time {$this->global->max_package_runtime_in_min} minutes reached killing process.");
@@ -600,12 +600,11 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
             if ($zip_is_open) {
             // profile ok
                 DUP_PRO_LOG::trace("Doing final zip close after adding $incremental_file_size");
-                DUP_PRO_Log::info(print_r($zipArchive, true));
-                if ($zipArchive->close()) {
+                if ($this->zipArchive->close()) {
                     DUP_PRO_LOG::trace("Final zip closed.");
                     $build_progress->next_archive_file_index = $countFiles;
                     $build_progress->retries = 0;
-                    $archive->Package->update();
+                    $this->package->update();
                 } else {
                     $err = DUP_PRO_U::__('ZipArchive close failure.');
                     $this->setDupArchiveSwitchFix($err);
@@ -623,18 +622,17 @@ class DUP_PRO_ZipArchive extends DUP_PRO_Archive
         if ($timed_out === false) {
             $build_progress->archive_built   = true;
             $build_progress->retries         = 0;
-            $archive->Package->update();
+            $this->package->update();
             $timerAllEnd = DUP_PRO_U::getMicrotime();
             $timerAllSum = DUP_PRO_U::elapsedTime($timerAllEnd, $build_progress->archive_start_time);
             $zipFileSize = @filesize($zipPath);
             DUP_PRO_Log::info("COMPRESSED SIZE: " . DUP_PRO_U::byteSize($zipFileSize));
             DUP_PRO_Log::info("ARCHIVE RUNTIME: {$timerAllSum}");
             DUP_PRO_Log::info("MEMORY STACK: " . DUP_PRO_Server::getPHPMemory());
-            if ($zipArchive->open($zipPath)) {
-                $archive->file_count = $zipArchive->numFiles;
-                DUP_PRO_LOG::traceObject('final zip archive dump', $zipArchive);
-                $archive->Package->update();
-                $zipArchive->close();
+            if ($this->zipArchive->open()) {
+                $this->package->Archive->file_count = $this->zipArchive->getNumFiles();
+                $this->package->update();
+                $this->zipArchive->close();
             } else {
                 DUP_PRO_Log::error("ZipArchive open failure.", "Encountered when retrieving final archive file count.", '', false);
                 return $build_progress->failed = true;

@@ -20,13 +20,15 @@ $title         = DUPX_MU::newSiteIsMultisite() ? 'New SUPER ADMIN account' : 'Ne
     </i>
 </p>
 <div class="dupx-opts">
-    <?php
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_CREATE_NEW);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_NAME);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_PASSWORD);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_MAIL);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_NICKNAME);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_FIRST_NAME);
-    $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_LAST_NAME);
-    ?>
+    <?php $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_CREATE_NEW); ?>
+    <div id="new-admin-fields-wrapper" >
+        <?php
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_NAME);
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_PASSWORD);
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_MAIL);
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_NICKNAME);
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_FIRST_NAME);
+        $paramsManager->getHtmlFormParam(PrmMng::PARAM_WP_ADMIN_LAST_NAME);
+        ?>
+    </div>
 </div>

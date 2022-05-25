@@ -2,6 +2,7 @@
 defined("ABSPATH") or die("");
 
 use Duplicator\Core\Controllers\ControllersManager;
+use Duplicator\Controllers\ImportPageController;
 
 DUP_PRO_U::hasCapability('manage_options');
 
@@ -24,9 +25,10 @@ if (isset($_REQUEST['action'])) {
     $global->adjust_settings_for_system();
 }
 
-$import_tab_url   = 'admin.php?page=duplicator-pro-import';
-$recovery_tab_url = 'admin.php?page=duplicator-pro-tools&tab=recovery';
-$beta_features_url = 'admin.php?page=duplicator-pro-settings&tab=general&subtab=bfeathures';
+$import_tab_url = ControllersManager::getMenuLink(
+    ControllersManager::IMPORT_SUBMENU_SLUG,
+    ImportPageController::L2_TAB_REMOTE_URL
+);
 ?>
 
 <style>
@@ -60,46 +62,41 @@ $beta_features_url = 'admin.php?page=duplicator-pro-settings&tab=general&subtab=
             </tr>
         </thead>
         <tbody>
+            <!--TODO: umcomment in 4.5.4 or 4.5.5 <tr>
+                <td class="icon" >
+                    <i class="fas fa-file-archive"></i>
+                </td>
+                <td>
+                    <b class="sub-title"><?php _e('Archive', 'duplicator-pro'); ?></b>
+                    <ul>
+                        <li>
+                            <b><?php _e('Encrypted archive support', 'duplicator-pro'); ?>:</b>
+                            <?php
+                                _e('Use the Archive ❯ Setup tab when building archive to enable encryption.', 'duplicator-pro');
+                            ?>
+                        </li>
+                    </ul>
+                </td>
+            </tr> -->
            <tr>
                 <td class="icon" >
                     <i class="fas fa-arrow-alt-circle-down"></i>
                 </td>
                 <td>
-                    <b class="sub-title"><?php _e('Import Features', 'duplicator-pro'); ?></b>
+                    <b class="sub-title"><?php _e('Import', 'duplicator-pro'); ?></b>
                     <ul>
                         <li>
-                            <b><?php _e('Import from a link', 'duplicator-pro'); ?>:</b>
+                            <b><?php _e('Import archive using a link', 'duplicator-pro'); ?>:</b>
                             <?php
-                                echo __('Import an archive directly from a URL link!', 'duplicator-pro');
-                            ?>
-                        </li>
-                    </ul>
-
-                </td>
-            </tr>
-            <tr>
-                <td class="icon" >
-                    <i class="fas fa-sitemap"></i>
-                </td>
-                <td>
-                    <b class="sub-title"><?php _e('Multisite Features', 'duplicator-pro'); ?></b>
-                    <ul>
-                        <li>
-                            <b><?php _e('Subsite to Multisite Import', 'duplicator-pro'); ?>:</b>
-                            <?php
-                                echo __('Import subsites from a multisite package into a multisite!  ', 'duplicator-pro');
-                            ?>
-                        </li>
-                        <li>
-                           <b><?php _e('Standalone to Multisite Import', 'duplicator-pro'); ?>:</b>
-                            <?php
-                                echo __('Import standalone site package into a multisite to add as a subsite!  ', 'duplicator-pro') .
-                                '<div class="lic-up">' . __('Multisite Features require a Business or Gold license.', 'duplicator-pro') . '</div>';
+                                _e('Import an archive using a URL from the source site or any other location!', 'duplicator-pro');
+                                echo '  ';
+                                _e('Go to ' , 'duplicator-pro');
+                                echo " <a href='$import_tab_url'>" . __('Import > Import Link', 'duplicator-pro') . '</a>.';
                             ?>
                         </li>
                     </ul>
                 </td>
-            </tr>
+            </tr>            
         </tbody> 
     </table>
     <hr class="separator"/>

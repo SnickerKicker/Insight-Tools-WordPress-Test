@@ -60,6 +60,7 @@ class DUP_PRO_Package_Recover extends DUP_PRO_Package_Importer
     public function __construct($path, DUP_PRO_Package $package)
     {
         $this->package = $package;
+        $this->archivePwd = $this->package->Archive->getArchivePassword();
         parent::__construct($path);
     }
 
@@ -246,17 +247,30 @@ class DUP_PRO_Package_Recover extends DUP_PRO_Package_Importer
     }
 
     /**
-     *
-     * @param type $packageId
-     * @return boolean\self
+     * Init recovery package by id
+     * 
+     * @param int $packageId
+     * 
+     * @return boolean|self
      */
     protected static function getInitRecoverPackageById($packageId)
     {
-        if (!($package = DUP_PRO_Package::get_by_id($packageId))) {
+        try {
+            if (!($package = DUP_PRO_Package::get_by_id($packageId))) {
+                throw new Exception('Invalid packag id');
+            }
+            
+            if (($archivePath = $package->getLocalPackageFilePath(DUP_PRO_Package_File_Type::Archive)) == false) {
+                throw new Exception('Archive file not found');
+            }
+
+            $result = new self($archivePath, $package);
+        } catch (Exception $e) {
+            DUP_PRO_Log::trace('ERROR ON RECOVER PACKAGE ID, msg:' . $e->getMessage());
             return false;
         }
-        $archivePath = $package->get_local_package_file(DUP_PRO_Package_File_Type::Archive);
-        return new self($archivePath, $package);
+
+        return $result;
     }
 
     /**

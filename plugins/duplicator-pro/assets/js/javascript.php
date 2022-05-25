@@ -194,6 +194,24 @@ Duplicator.UI.Ctrl = {};
         });        
     }
 
+    DupPro.passwordToggle = function () {
+        $('.dup-password-toggle').each(function () {
+            let inputElem = $(this).find('input');
+            let buttonElem = $(this).find('button');
+            let iconElem = $(this).find('button i');
+
+            buttonElem.click(function () {
+                if (inputElem.attr('type') == 'password') {
+                    inputElem.attr('type','text');
+                    iconElem.removeClass('fa-eye').addClass('fa-eye-slash');
+                } else {
+                    inputElem.attr('type','password');
+                    iconElem.removeClass('fa-eye-slash').addClass('fa-eye');
+                }
+            });
+        });
+    }
+
 })(jQuery);
 </script>
 
@@ -287,6 +305,7 @@ jQuery(document).ready(function ($)
     });
 
     DuplicatorTooltip.load();
+    DupPro.passwordToggle();
 
     //HANDLEBARS HELPERS
     if (typeof (Handlebars) != "undefined") {

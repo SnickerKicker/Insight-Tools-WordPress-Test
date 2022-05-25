@@ -62,6 +62,29 @@ class DUP_PRO_DB_Build_Progress
     }
 
     /**
+     * Reset build progress values
+     *
+     * @return void
+     */
+    public function reset() {
+        $this->tablesToProcess  = array();
+        $this->validationStage1 = false;
+        $this->doneInit         = false;
+        $this->doneFiltering    = false;
+        $this->doneCreates      = false;
+        $this->completed        = false;
+        $this->startTime        = 0;
+        $this->wasInterrupted   = false;
+        $this->errorOut         = false;
+        $this->failureCount     = 0;
+        $this->countCheckData   = array(
+            'impreciseTotalRows' => 0,
+            'countTotal'         => 0,
+            'tables'             => array()
+        );
+    }
+
+    /**
      * set count value at the beginning of table insert
      *
      * @param string $table

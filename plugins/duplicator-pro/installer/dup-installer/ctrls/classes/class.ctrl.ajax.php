@@ -12,8 +12,10 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Utils\Log\Log;
 use Duplicator\Installer\Core\Params\PrmMng;
+use Duplicator\Installer\Utils\SecureCsrf;
 use Duplicator\Libs\Snap\SnapJson;
 use Duplicator\Libs\Snap\SnapString;
 use Duplicator\Libs\Snap\SnapUtil;
@@ -22,7 +24,7 @@ final class DUPX_Ctrl_ajax
 {
 
     const DEBUG_AJAX_CALL_SLEEP            = 0;
-    const PREVENT_BRUTE_FORCE_ATTACK_SLEEP = 2;
+    const PREVENT_BRUTE_FORCE_ATTACK_SLEEP = 1;
     const AJAX_NAME                        = 'ajax_request';
     const ACTION_NAME                      = 'ajax_action';
     const TOKEN_NAME                       = 'ajax_csrf_token';
@@ -147,7 +149,7 @@ final class DUPX_Ctrl_ajax
 
         switch ($action) {
             case self::ACTION_PWD_CHECK:
-                $actionData = DUPX_Security::getInstance()->securityCheck();
+                $actionData = Security::getInstance()->securityCheck();
                 break;
             case self::ACTION_PROCEED_CONFIRM_DIALOG:
                 $vData = DUPX_Validation_database_service::getInstance();
@@ -295,7 +297,7 @@ final class DUPX_Ctrl_ajax
 
     public static function generateToken($action)
     {
-        return DUPX_CSRF::generate(self::getTokenKeyByAction($action));
+        return SecureCsrf::generate(self::getTokenKeyByAction($action));
     }
 
     protected static function debugAjaxCallSleep()

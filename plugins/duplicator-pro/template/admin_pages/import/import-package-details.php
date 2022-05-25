@@ -2,7 +2,7 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 defined("ABSPATH") or die("");
@@ -24,7 +24,26 @@ if (!$importObj instanceof DUP_PRO_Package_Importer) {
 ?>
 <div class="dup-pro-import-package-detail-content">
     <?php
-    if (!$importObj->isImportable($importFailMessage)) {
+    $errorMsg = '';
+    if (!$importObj->encryptCheck($errorMsg)) {
+        ?>
+        <p class="maroon">
+            <b><i class="fas fa-exclamation-triangle"></i> <?php echo $errorMsg; ?></b>
+        </p>
+        <?php
+    } elseif (!$importObj->passwordCheck()) {
+        ?>
+        <p class="maroon">
+            <b><i class="fas fa-exclamation-triangle"></i> <?php  esc_html_e('Valid password required'); ?></b>
+        </p>
+        <div class="dup-import-archive-password-request" >
+            <input type="password" class="dup-import-archive-password" name="password" value="" >
+            <button type="button" class="dup-import-set-archive-password button" >
+                <?php esc_html_e('Submit', 'duplicator-pro'); ?>
+            </button>
+        </div>
+        <?php
+    } elseif (!$importObj->isImportable($importFailMessage)) {
         ?>
         <p class="maroon">
             <b><i class="fas fa-exclamation-triangle"></i> <?php echo $importFailMessage; ?></b>

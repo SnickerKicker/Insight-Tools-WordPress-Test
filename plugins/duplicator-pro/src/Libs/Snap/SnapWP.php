@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -163,6 +163,39 @@ class SnapWP
         mysqli_report($defReporting);
 
         return $result;
+    }
+
+    /**
+     * Schedules cron event if it's not already scheduled.
+     *
+     * @param int    $timestamp        Timestamp of the first next run time
+     * @param string $cronIntervalName Name of cron interval to be used
+     * @param string $hook             Hook that we want to assign to the given cron interval
+     *
+     * @return void
+     */
+    public static function scheduleEvent($timestamp, $cronIntervalName, $hook)
+    {
+        if (!wp_next_scheduled($hook)) {
+            // Assign the hook to the schedule
+            wp_schedule_event($timestamp, $cronIntervalName, $hook);
+        }
+    }
+
+    /**
+     * Unschedules cron event if it's scheduled.
+     *
+     * @param string $hook Name of the hook that we want to unschedule
+     *
+     * @return void
+     */
+    public static function unscheduleEvent($hook)
+    {
+        if (wp_next_scheduled($hook)) {
+            // Unschedule the hook
+            $timestamp = wp_next_scheduled($hook);
+            wp_unschedule_event($timestamp, $hook);
+        }
     }
 
     /**
@@ -571,6 +604,16 @@ class SnapWP
     }
 
     /**
+     * Returns gmt_offset * 3600
+     *
+     * @return int timezone offset in seconds
+     */
+    public static function getGMTOffset()
+    {
+        return get_option('gmt_offset') ? ((float) get_option('gmt_offset')) * 3600 : 0;
+    }
+
+    /**
      * Returns wp option "timezone_string"
      *
      * @return string // timezone_string, will be empty if manual offset is chosen
@@ -627,7 +670,7 @@ class SnapWP
         }
         // Manual offset is selected. In this case there is no DST so we can
         // create the date string using current gmt_offset.
-        $local_time = $timestamp + ((int) get_option('gmt_offset') * 3600);
+        $local_time = $timestamp + SnapWP::getGMTOffset();
         return (string) date($format, $local_time);
     }
 }

@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -140,6 +140,11 @@ class SnapURL
      */
     public static function parseUrl($url, $component = -1)
     {
+        if (preg_match('/^([a-zA-Z0-9]+\:)?\/\//', $url) !== 1) {
+            // fix invalid URL for only host string ex. 'myhost.com'
+            $url = '//' . $url;
+        }
+
         $result = parse_url($url, $component);
         if (is_array($result)) {
             $result = array_merge(self::$DEF_ARRAY_PARSE_URL, $result);
@@ -158,7 +163,7 @@ class SnapURL
      */
     public static function removeScheme($url, $removeWww = false)
     {
-        $parts = parse_url($url);
+        $parts = self::parseUrl($url);
         unset($parts['scheme']);
         $result = self::buildUrl($parts);
         if ($removeWww) {

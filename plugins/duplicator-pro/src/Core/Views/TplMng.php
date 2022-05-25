@@ -4,7 +4,7 @@
  * Template view manager
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -153,6 +153,26 @@ final class TplMng
     public function renderJson($slugTpl, $args = array(), $echo = true)
     {
         $renderResult = SnapJson::jsonEncode($this->render($slugTpl, $args, false));
+        if ($echo) {
+            echo $renderResult;
+            return '';
+        } else {
+            return $renderResult;
+        }
+    }
+
+    /**
+     * Render template apply esc attr
+     *
+     * @param string $slugTpl template file is a relative path from root template folder
+     * @param array  $args    array key / val where key is the var name in template
+     * @param bool   $echo    if false return template in string
+     *
+     * @return string
+     */
+    public function renderEscAttr($slugTpl, $args = array(), $echo = true)
+    {
+        $renderResult = esc_attr($this->render($slugTpl, $args, false));
         if ($echo) {
             echo $renderResult;
             return '';

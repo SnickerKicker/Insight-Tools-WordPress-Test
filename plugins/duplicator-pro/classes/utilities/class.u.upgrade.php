@@ -2,8 +2,7 @@
 
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Utils\Crypt\CryptBlowfish;
-
-defined("ABSPATH") or die("");
+use Duplicator\Addons\ProBase\License\License;
 
 /**
  * Utility class managing when the plugin is updated
@@ -17,29 +16,36 @@ defined("ABSPATH") or die("");
 class DUP_PRO_Upgrade_U
 {
     /**
-     * Undocumented function
+     * This function is executed when the plugin is activated and 
+     * every time the version saved in the wp_options is different from the plugin version both in upgrade and downgrade.
      *
      * @param string $currentVersion current Duplicator version
      * @param string $newVersion new Duplicator Version
-     * 
+     *
      * @return void
      */
     public static function performUpgrade($currentVersion, $newVersion)
     {
-        //error_log("Performing upgrade from {$currentVersion} to {$newVersion}");
-
         self::storeDupSecureKey($currentVersion);
         self::updateEndpoints($currentVersion);
+        self::updateTemplates($currentVersion);
         self::moveDataToSecureGlobal();
         self::initializeGift();
         self::updateArchiveEngine();
+        License::clearVersionCache();
+
+        //Setup All Directories
+        DUP_PRO_U::initStorageDirectory();
+        
+        // Schedule custom cron event for cleanup of installer files if it should be scheduled
+        DUP_PRO_Global_Entity::cleanupScheduleSetup();
     }
 
     /**
      * Upate endpoints
      *
      * @param string $currentVersion current Duplicator version
-     * 
+     *
      * @return void
      */
     protected static function updateEndpoints($currentVersion)
@@ -59,13 +65,36 @@ class DUP_PRO_Upgrade_U
     }
 
     /**
+     * Upate templates
+     *
+     * @param string $currentVersion current Duplicator version
+     *
+     * @return void
+     */
+    protected static function updateTemplates($currentVersion) {
+        if (version_compare($currentVersion, '4.5.3', '>=')) {
+            return;
+        }
+
+        $templates = DUP_PRO_Package_Template_Entity::get_all(true);
+        if (!is_array($templates)) {
+            return;
+        }
+
+        foreach ($templates as $template) {
+            $template->save();
+        }
+    }
+
+    /**
      * Save DUP SECURE KEY
      *
      * @param string $currentVersion current Duplicator version
-     * 
+     *
      * @return void
      */
-    protected static function storeDupSecureKey($currentVersion) {
+    protected static function storeDupSecureKey($currentVersion)
+    {
         if ($currentVersion !== false && SnapUtil::versionCompare($currentVersion, '4.5.0', '<=', 3)) {
             CryptBlowfish::createWpConfigSecureKey(true, true);
         } else {

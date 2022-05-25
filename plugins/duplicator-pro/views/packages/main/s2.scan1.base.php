@@ -6,8 +6,6 @@ use Duplicator\Libs\Snap\SnapJson;
 
 require_once(DUPLICATOR____PATH . '/classes/class.io.php');
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
 
 wp_enqueue_script('dup-pro-handlebars');
 
@@ -240,7 +238,7 @@ $archive_export_onlydb = isset($_POST['export-onlydb']) ? 1 : 0;
 </style>
 
 <?php
-$validator             = $Package->validateInputs();
+$validator = $Package->validateInputs();
 if (!$validator->isSuccess()) {
     ?>
     <form id="form-duplicator" method="post" action="<?php echo $package_list_url ?>">

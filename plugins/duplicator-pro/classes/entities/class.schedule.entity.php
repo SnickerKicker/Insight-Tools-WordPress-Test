@@ -17,6 +17,7 @@
 use Duplicator\Libs\Snap\SnapLog;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Libs\Snap\SnapWP;
+use Duplicator\Extlibs\Cron\CronExpression;
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
@@ -43,9 +44,6 @@ abstract class DUP_PRO_Schedule_Days
 
 class DUP_PRO_Schedule_Entity extends DUP_PRO_JSON_Entity_Base
 {
-    const CRON_PARSER_LIB_CSD_PARSER = 'csd-parser';
-    const CRON_PARSER_LIB_CRON_EXP   = 'cron-exp';
-
     public $name            = '';
     public $template_id     = -1;
     public $start_ticks;
@@ -203,7 +201,7 @@ class DUP_PRO_Schedule_Entity extends DUP_PRO_JSON_Entity_Base
             $package->Name       = $this->generate_package_name();
             $package->Hash       = $package->make_hash();
             $package->NameHash   = "{$package->Name}_{$package->Hash}";
-            $package->Notes      = sprintf(DUP_PRO_U::esc_html__('Created by schedule %1$s'), $this->name);
+            $package->notes      = sprintf(DUP_PRO_U::esc_html__('Created by schedule %1$s'), $this->name);
             if ($run_now) {
                 $package->Type = DUP_PRO_PackageType::RUN_NOW;
             } else {
@@ -237,7 +235,7 @@ class DUP_PRO_Schedule_Entity extends DUP_PRO_JSON_Entity_Base
             $package->Installer->OptsDBName     = $template->installer_opts_db_name;
             $package->Installer->OptsDBUser     = $template->installer_opts_db_user;
             $package->Installer->OptsSecureOn   = $template->installer_opts_secure_on;
-            $package->Installer->OptsSecurePass = $template->installer_opts_secure_pass;
+            $package->Installer->passowrd       = $template->installerPassowrd;
             $package->Installer->OptsSkipScan   = $template->installer_opts_skip_scan;
 
             // CPANEL
@@ -346,8 +344,7 @@ class DUP_PRO_Schedule_Entity extends DUP_PRO_JSON_Entity_Base
 
     private function generate_package_name()
     {
-        $ticks = time();
-        $ticks += ((int) get_option('gmt_offset') * 3600);
+        $ticks = time() + SnapWP::getGMTOffset();
 
         //Remove specail_chars from final result
         $sanitize_special_chars = array(
@@ -379,33 +376,16 @@ class DUP_PRO_Schedule_Entity extends DUP_PRO_JSON_Entity_Base
     public function get_next_run_time()
     {
         if ($this->active) {
-            $now = time();
-            $nextMinute = $now + 60; // We look ahead starting from next minute
-            $nowMoved = $nextMinute + (int) get_option('gmt_offset') * 3600;
+            $nextMinute           = time() + 60; // We look ahead starting from next minute
+            $date                 = new DateTime();
+            $date->setTimestamp($nextMinute + SnapWP::getGMTOffset());//Add timezone specific offset
 
-            switch (DUP_PRO_Global_Entity::get_instance()->cron_parser_lib) {
-                case self::CRON_PARSER_LIB_CRON_EXP:
-                    $date = new DateTime();
-                    $date->setTimestamp($nowMoved);
-                    $cronEx = Duplicator\Extlibs\Cron\CronExpression::factory($this->cron_string);
-                    $nextRunTime = $cronEx->getNextRunDate($date)->getTimestamp();
-                    break;
-                case self::CRON_PARSER_LIB_CSD_PARSER:
-                default:
-                    // RSR making default since there is an odd bug where cron parse lib not set!
-                    // self::CRON_PARSER_LIB_CSD_PARSER:
-                    //OLD LIB (had a bug in it)
-                    require_once(DUPLICATOR____PATH . '/lib/cron/csd_parser.php');
-                    // RSR was having problems with this - I THINK its because it considers when you are in the same
-                    // minute as not really being the next but the same
-                    $parser = new csd_parser($this->cron_string, $nowMoved);
-                    $nextRunTime = $parser->get();
-                    break;
-            }
+            //Get next run time relative to $date
+            $nextRunTime = CronExpression::factory($this->cron_string)->getNextRunDate($date)->getTimestamp();
 
             // Have to negate the offset and add. For instance for az time -7
             // we want the next run time to be 7 ahead in UTC time
-            $nextRunTime -= ((int) get_option('gmt_offset') * 3600);
+            $nextRunTime -= SnapWP::getGMTOffset();
 
             // Handling DST problem that happens when there is a change of DST between $nextMinute and $nextRunTime.
             // The problem does not happen if manual offset is selected, because in that case there is no DST.

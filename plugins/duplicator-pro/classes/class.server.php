@@ -2,12 +2,9 @@
 
 defined("ABSPATH") or die("");
 
-use Duplicator\Libs\Snap\SnapIO;
 use Duplicator\Libs\Snap\SnapUtil;
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.global.entity.php');
 require_once(DUPLICATOR____PATH . '/classes/class.io.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
 
 /**
  * Class used to get server info

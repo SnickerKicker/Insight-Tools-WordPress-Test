@@ -2,13 +2,14 @@
 
 /**
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  */
 
 namespace Duplicator\Utils\Crypt;
 
 use DUP_PRO_Log;
 use Duplicator\Libs\Snap\SnapJson;
+use Duplicator\Libs\Snap\SnapLog;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Libs\Snap\SnapWP;
 use Duplicator\Libs\WpConfig\WPConfigTransformer;
@@ -18,6 +19,10 @@ use pcrypt;
 
 class CryptBlowfish implements CryptInterface
 {
+    const AUTH_DEFINE_NAME_OLD = 'DUP_SECURE_KEY'; // OLD define name
+    const AUTH_DEFINE_NAME     = 'DUPLICATOR_AUTH_KEY';
+    const AUTO_SALT_LEN        = 32;
+
     /** @var string */
     protected static $tempDefinedKey = null;
 
@@ -39,29 +44,33 @@ class CryptBlowfish implements CryptInterface
             }
 
             if ($fromLegacy) {
-                $key = self::getLegacyKey();
+                $authVal = self::getLegacyKey();
             } else {
-                $key = SnapUtil::generatePassword(64, true, true);
+                $authVal = SnapUtil::generatePassword(64, true, true);
             }
 
             $transformer = new WPConfigTransformer($wpConfig);
 
-            if ($transformer->exists('constant', 'DUP_SECURE_KEY')) {
+            if ($transformer->exists('constant', self::AUTH_DEFINE_NAME_OLD) && !$transformer->exists('constant', self::AUTH_DEFINE_NAME)) {
+                $authVal = $transformer->getValue('constant', self::AUTH_DEFINE_NAME_OLD);
+                $result  = $transformer->update('constant', self::AUTH_DEFINE_NAME, $authVal);
+                // $transformer->remove('constant', self::AUTH_DEFINE_NAME_OLD);
+            } elseif ($transformer->exists('constant', self::AUTH_DEFINE_NAME)) {
                 if ($overwrite) {
                     if (!is_writeable($wpConfig)) {
                         throw new Exception('wp-config isn\'t writeable');
                     }
-                    $result = $transformer->update('constant', 'DUP_SECURE_KEY', $key);
+                    $result = $transformer->update('constant', self::AUTH_DEFINE_NAME, $authVal);
                 }
             } else {
                 if (!is_writeable($wpConfig)) {
                     throw new Exception('wp-config isn\'t writeable');
                 }
-                $result = $transformer->add('constant', 'DUP_SECURE_KEY', $key);
+                $result = $transformer->add('constant', self::AUTH_DEFINE_NAME, $authVal);
             }
 
             if ($result) {
-                self::$tempDefinedKey = $key;
+                self::$tempDefinedKey = $authVal;
             }
         } catch (Exception $e) {
             DUP_PRO_Log::trace('Can create wp-config secure key, error: ' . $e->getMessage());
@@ -88,12 +97,12 @@ class CryptBlowfish implements CryptInterface
 
             $transformer = new WPConfigTransformer($wpConfig);
 
-            if ($transformer->exists('constant', 'DUP_SECURE_KEY')) {
+            if ($transformer->exists('constant', self::AUTH_DEFINE_NAME)) {
                 if (!is_writeable($wpConfig)) {
                     throw new Exception('wp-config isn\'t writeable');
                 }
 
-                $result = $transformer->remove('constant', 'DUP_SECURE_KEY');
+                $result = $transformer->remove('constant', self::AUTH_DEFINE_NAME);
             }
 
             if (!is_writeable($wpConfig)) {
@@ -117,10 +126,12 @@ class CryptBlowfish implements CryptInterface
     {
         if (self::$tempDefinedKey !== null) {
             return self::$tempDefinedKey;
-        } elseif (strlen(DUP_SECURE_KEY) == 0) {
-            return self::getLegacyKey();
+        } elseif (strlen(constant(self::AUTH_DEFINE_NAME)) > 0) {
+            return constant(self::AUTH_DEFINE_NAME);
+        } elseif (defined(self::AUTH_DEFINE_NAME_OLD) && strlen(constant(self::AUTH_DEFINE_NAME_OLD)) > 0) {
+            return constant(self::AUTH_DEFINE_NAME_OLD);
         } else {
-            return DUP_SECURE_KEY;
+            return self::getLegacyKey();
         }
     }
 
@@ -143,15 +154,20 @@ class CryptBlowfish implements CryptInterface
     /**
      * Return encrypt string
      *
-     * @param string $string string to encrypt
-     * @param string $key    hash key
+     * @param string $string  string to encrypt
+     * @param string $key     hash key
+     * @param bool   $addSalt if true add HASH salt to string
      *
      * @return string
      */
-    public static function encrypt($string, $key = null)
+    public static function encrypt($string, $key = null, $addSalt = false)
     {
         if ($key == null) {
             $key = self::getDefaultKey();
+        }
+
+        if ($addSalt) {
+            $string = SnapUtil::generatePassword(self::AUTO_SALT_LEN, true, true) . $string . SnapUtil::generatePassword(self::AUTO_SALT_LEN, true, true);
         }
 
         $crypt           = new pcrypt(MODE_ECB, "BLOWFISH", $key);
@@ -163,25 +179,27 @@ class CryptBlowfish implements CryptInterface
     /**
      * Encrypt a generic value (scalar o array o object)
      *
-     * @param mixed  $value value to encrypt
-     * @param string $key   hash key
+     * @param mixed  $value   value to encrypt
+     * @param string $key     hash key
+     * @param bool   $addSalt if true add HASH salt to string
      *
      * @return string
      */
-    public static function encryptValue($value, $key = null)
+    public static function encryptValue($value, $key = null, $addSalt = false)
     {
-        return self::encrypt(SnapJson::jsonEncode($value), $key);
+        return self::encrypt(SnapJson::jsonEncode($value), $key, $addSalt);
     }
 
     /**
      * Return decrypt string
      *
-     * @param string $string string to decrypt
-     * @param string $key    hash key
+     * @param string $string     string to decrypt
+     * @param string $key        hash key
+     * @param bool   $removeSalt if true remove HASH salt from string
      *
      * @return string
      */
-    public static function decrypt($string, $key = null)
+    public static function decrypt($string, $key = null, $removeSalt = false)
     {
         if (empty($string)) {
             return '';
@@ -199,20 +217,25 @@ class CryptBlowfish implements CryptInterface
         }
 
         $decrypted_value = $crypt->decrypt($string);
+        if ($removeSalt) {
+            $decrypted_value = substr($decrypted_value, self::AUTO_SALT_LEN, (strlen($decrypted_value) - (self::AUTO_SALT_LEN * 2)));
+        }
+
         return $decrypted_value;
     }
 
     /**
      * Return decrypt value
      *
-     * @param string $string string to decrypt
-     * @param string $key    hash key
+     * @param string $string     string to decrypt
+     * @param string $key        hash key
+     * @param bool   $removeSalt if true HASH remove salt from string
      *
      * @return mixed
      */
-    public static function decryptValue($string, $key)
+    public static function decryptValue($string, $key, $removeSalt = false)
     {
-        $json = self::decrypt($string, $key);
+        $json = self::decrypt($string, $key, $removeSalt);
         return json_decode($json);
     }
 }

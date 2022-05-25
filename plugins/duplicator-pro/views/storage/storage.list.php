@@ -5,8 +5,6 @@ use Duplicator\Ajax\ServicesStorage;
 defined("ABSPATH") or die("");
 DUP_PRO_U::hasCapability('export');
 
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
-
 $nonce_action  = 'duppro-storage-list';
 $display_edit  = false;
 $storages      = DUP_PRO_Storage_Entity::get_all();

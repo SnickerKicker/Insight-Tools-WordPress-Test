@@ -8,8 +8,6 @@
  * Author: Snap Creek
  * Author URI: http://snapcreek.com
  *
- * PHP version 5.3
- *
  * @category  Duplicator
  * @package   Installer
  * @author    Snapcreek <admin@snapcreek.com>

@@ -68,7 +68,7 @@ class DbReplace
             case DUPX_InstallerState::INSTALL_RECOVERY_MULTISITE_SUBDOMAIN:
             case DUPX_InstallerState::INSTALL_RECOVERY_MULTISITE_SUBFOLDER:
             case DUPX_InstallerState::INSTALL_RECOVERY_SINGLE_SITE:
-                throw new Exception('Replace engine isn\'t avaiable for restore backup mode');
+                throw new Exception('Replace engine isn\'t available for restore backup mode');
             case DUPX_InstallerState::INSTALL_NOT_SET:
             default:
                 throw new Exception('Invalid installer mode');

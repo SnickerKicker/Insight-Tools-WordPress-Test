@@ -10,7 +10,7 @@
  *
  */
 
-defined('ABSPATH') || defined('DUPXABSPATH') || exit;
+use Duplicator\Libs\Snap\SnapWP;
 
 class DUP_PRO_RestoreOnly_Package
 {
@@ -66,7 +66,8 @@ class DUP_PRO_RestoreOnly_Package
 
     private static function canBeMigrate()
     {
-        $homePath = DUP_PRO_Archive::getArchiveListPaths('home');
-        return apply_filters('duplicator_pro_package_can_be_migrate', (strlen($homePath) > 2));
+        $homePath = trailingslashit(SnapWP::getHomePath());
+        $canBeMigrated = (strlen($homePath) > 3);
+        return apply_filters('duplicator_pro_package_can_be_migrate', $canBeMigrated);
     }
 }

@@ -4,10 +4,11 @@
  * Extraction class
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Deploy\DupArchive\Daws;
 use Duplicator\Installer\Core\Deploy\Files\FilterMng;
 use Duplicator\Installer\Core\Deploy\Files\Filters;
@@ -132,13 +133,14 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
     {
         $paramsManager = PrmMng::getInstance();
         $archiveConfig = DUPX_ArchiveConfig::getInstance();
+        $sec = Security::getInstance();
 
         $this->extractonStart             = DUPX_U::getMicrotime();
         $this->zip_filetime               = $paramsManager->getValue(PrmMng::PARAM_FILE_TIME);
         $this->archive_action             = $paramsManager->getValue(PrmMng::PARAM_ARCHIVE_ACTION);
         $this->archive_engine             = $paramsManager->getValue(PrmMng::PARAM_ARCHIVE_ENGINE);
         $this->root_path                  = SnapIO::trailingslashit($paramsManager->getValue(PrmMng::PARAM_PATH_NEW));
-        $this->archive_path               = DUPX_Security::getInstance()->getArchivePath();
+        $this->archive_path               = Security::getInstance()->getArchivePath();
         $this->dawn_status                = null;
         $this->archive_items_count        = $archiveConfig->totalArchiveItemsCount();
         $this->ajax1_error_level          = error_reporting();
@@ -147,7 +149,7 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
 
         if (self::ENGINE_DUP == $this->archive_engine || $this->archive_engine == self::ENGINE_MANUAL) {
             $this->sub_folder_archive = '';
-        } elseif (($this->sub_folder_archive = DUPX_U::findDupInstallerFolder(DUPX_Security::getInstance()->getArchivePath())) === false) {
+        } elseif (($this->sub_folder_archive = DUPX_U::findDupInstallerFolder($sec->getArchivePath(), $sec->getArchivePassword())) === false) {
             Log::info("findDupInstallerFolder error; set no subfolder");
             // if not found set not subfolder
             $this->sub_folder_archive = '';
@@ -250,8 +252,6 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
 
         $remover = new RemoveFiles($this->removeFilters);
         $remover->remove();
-
-        //throw new Exception('FORCE FAIL');
 
         DUPX_U::maintenanceMode(true);
 
@@ -452,7 +452,7 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
 
         $params = array(
             'action'                   => $this->isFirst() ? 'start_expand' : 'expand',
-            'archive_filepath'         => DUPX_Security::getInstance()->getArchivePath(),
+            'archive_filepath'         => Security::getInstance()->getArchivePath(),
             'restore_directory'        => $paramsManager->getValue(PrmMng::PARAM_PATH_NEW),
             'worker_time'              => DUPX_Constants::CHUNK_EXTRACTION_TIMEOUT_TIME_ZIP,
             'filtered_directories'     => $this->filters->getDirs(),
@@ -508,6 +508,7 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
         $nManager            = DUPX_NOTICE_MANAGER::getInstance();
         $archiveConfig       = DUPX_ArchiveConfig::getInstance();
         $dupInstallerZipPath = ltrim($this->sub_folder_archive . '/' . self::DUP_FOLDER_NAME, '/');
+        $password = Security::getInstance()->getArchivePassword();
 
         $zip       = new ZipArchive();
         $time_over = false;
@@ -522,6 +523,11 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
                 DUPX_Constants::FAQ_URL . "/#faq-installer-130-q</a></b>";
             Log::info($zip_err_msg);
             throw new Exception("Couldn't open zip archive.");
+        }
+
+        if (strlen($password)) {
+            Log::info("ARCHIVE PASSWORD SET", Log::LV_DETAILED);
+            $zip->setPassword($password);
         }
 
         $this->num_files   = $zip->numFiles;
@@ -1030,8 +1036,12 @@ class DUP_PRO_Extraction extends AbstractJsonSerializable
      */
     protected function runShellExec()
     {
-        $command = escapeshellcmd(DUPX_Server::get_unzip_filepath()) .
-            " -o -qq " . escapeshellarg($this->archive_path) . " -d " .
+        $password = Security::getInstance()->getArchivePassword();
+        $params = "-o -qq";
+        if (strlen($password)) {
+            $params .= ' -P ' . escapeshellarg($password);
+        }
+        $command = escapeshellcmd(DUPX_Server::get_unzip_filepath()) . ' ' . $params . ' ' . escapeshellarg($this->archive_path) . " -d " .
             escapeshellarg($this->root_path) . " 2>&1";
         if ($this->zip_filetime == 'original') {
             Log::info("\nShell Exec Current does not support orginal file timestamp please use ZipArchive");

@@ -8,6 +8,7 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Libs\Snap\SnapJson;
 
 ?>
@@ -45,7 +46,7 @@ use Duplicator\Libs\Snap\SnapJson;
 
         DUPX.ajaxErrorDisplayRestart = function (result, textStatus, jqXHR) {
             DUPX.pageComponents.showError(result, textStatus, jqXHR, function () {
-                window.location.href = <?php echo SnapJson::jsonEncode(DUPX_Security::getInstance()->getBootUrl()); ?>;
+                window.location.href = <?php echo SnapJson::jsonEncode(Security::getInstance()->getBootUrl()); ?>;
             });
         };
 

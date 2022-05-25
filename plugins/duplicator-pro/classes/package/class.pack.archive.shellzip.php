@@ -5,28 +5,28 @@ defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 use Duplicator\Libs\Snap\SnapIO;
 
 require_once(DUPLICATOR____PATH . '/classes/package/class.pack.archive.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.system.global.entity.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.storage.entity.php');
 require_once(DUPLICATOR____PATH . '/classes/utilities/class.u.shell.php');
 
 /**
  *  Creates a zip file using Shell_Exec and the system zip command
- *  Not available on all system   */
-class DUP_PRO_ShellZip extends DUP_PRO_Archive
+ *  Not available on all system   
+ **/
+class DUP_PRO_ShellZip
 {
 
     /**
      * Creates the zip file and adds the SQL file to the archive
      *
-     * @param DUP_PRO_Archive $archive
+     * @param DUP_PRO_Package $package
      * @param DUP_PRO_Build_Progress $build_progress
+     * 
      * @return boolean
      */
-    public static function create(DUP_PRO_Archive $archive, DUP_PRO_Build_Progress $build_progress)
+    public static function create(DUP_PRO_Package $package, DUP_PRO_Build_Progress $build_progress)
     {
+        $archive = $package->Archive;
         try {
-            if ($archive->Package->Status == DUP_PRO_PackageStatus::ARCSTART) {
+            if ($package->Status == DUP_PRO_PackageStatus::ARCSTART) {
                 $error_text = DUP_PRO_U::__('Zip process getting killed due to limited server resources.');
                 $fix_text   = DUP_PRO_U::__('Click to switch Archive Engine DupArchive.');
                 $system_global = DUP_PRO_System_Global_Entity::get_instance();
@@ -47,26 +47,26 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
                     return true;
                 } else {
                     $build_progress->retries++;
-                    $archive->Package->update();
+                    $package->update();
                 }
             }
 
-            do_action('duplicator_pro_package_before_set_status', $archive->Package, DUP_PRO_PackageStatus::ARCSTART);
-            $archive->Package->Status = DUP_PRO_PackageStatus::ARCSTART;
-            $archive->Package->update();
-            $archive->Package->safe_tmp_cleanup(true);
-            do_action('duplicator_pro_package_after_set_status', $archive->Package, DUP_PRO_PackageStatus::ARCSTART);
+            do_action('duplicator_pro_package_before_set_status', $package, DUP_PRO_PackageStatus::ARCSTART);
+            $package->Status = DUP_PRO_PackageStatus::ARCSTART;
+            $package->update();
+            $package->safe_tmp_cleanup(true);
+            do_action('duplicator_pro_package_after_set_status', $package, DUP_PRO_PackageStatus::ARCSTART);
             $compressDir  = rtrim(SnapIO::safePath($archive->PackDir), '/');
-            $zipPath      = SnapIO::safePath("{$archive->Package->StorePath}/{$archive->File}");
-            $sql_filepath = SnapIO::safePath("{$archive->Package->StorePath}/{$archive->Package->Database->File}");
+            $zipPath      = SnapIO::safePath("{$package->StorePath}/{$archive->File}");
+            $sql_filepath = SnapIO::safePath("{$package->StorePath}/{$package->Database->File}");
             $filterDirs   = empty($archive->FilterDirs) ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterDirs));
             $filterFiles  = empty($archive->FilterFiles) ? 'not set' : rtrim(str_replace(';', "\n\t", $archive->FilterFiles));
             $filterExts   = empty($archive->FilterExts) ? 'not set' : $archive->FilterExts;
             $filterOn     = ($archive->FilterOn) ? 'ON' : 'OFF';
-            $scanFilepath = DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$archive->Package->NameHash}_scan.json";
-//LOAD SCAN REPORT
+            $scanFilepath = DUPLICATOR_PRO_SSDIR_PATH_TMP . "/{$package->NameHash}_scan.json";
+            // LOAD SCAN REPORT
             try {
-                $scanReport = $archive->Package->getScanReportFromJson($scanFilepath);
+                $scanReport = $package->getScanReportFromJson($scanFilepath);
             } catch (DUP_PRO_NoScanFileException $ex) {
                 DUP_PRO_LOG::trace("**** scan file $scanFilepath doesn't exist!!");
                 DUP_PRO_Log::error($ex->getMessage(), '', false);
@@ -123,7 +123,7 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
             $filterDirs  = $archive->FilterDirsAll;
             $filterExts  = $archive->FilterExtsAll;
             $filterFiles = $archive->FilterFilesAll;
-//DIRS LIST
+            // DIRS LIST
             foreach ($filterDirs as $filterDir) {
                 if (trim($filterDir) != '') {
                     $relative_filter_dir = DUP_PRO_U::getRelativePath($compressDir, $filterDir);
@@ -159,10 +159,14 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
 
 
             if ($contains_root == false) {
-// Only attempt to zip things up if root isn't in there since stderr indicates when it cant do anything
+                // Only attempt to zip things up if root isn't in there since stderr indicates when it cant do anything
                 $storages = DUP_PRO_Storage_Entity::get_all();
                 foreach ($storages as $storage) {
-                    if (($storage->storage_type == DUP_PRO_Storage_Types::Local) && $storage->local_filter_protection && ($storage->id != DUP_PRO_Virtual_Storage_IDs::Default_Local)) {
+                    if (
+                        $storage->storage_type == DUP_PRO_Storage_Types::Local && 
+                        $storage->local_filter_protection && 
+                        $storage->id != DUP_PRO_Virtual_Storage_IDs::Default_Local
+                    ) {
                         $storage_path   = SnapIO::safePath($storage->local_storage_folder);
                         $storage_path   = DUP_PRO_U::getRelativePath($compressDir, $storage_path);
                         $exclude_string .= "$storage_path**\* ";
@@ -171,12 +175,17 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
 
                 $relative_backup_dir = DUP_PRO_U::getRelativePath($compressDir, DUPLICATOR_PRO_SSDIR_PATH);
                 $exclude_string      .= "$relative_backup_dir**\* ";
-                $compression_parameter = DUP_PRO_Shell_U::getCompressionParam($build_progress->current_build_compression);
+                $params = DUP_PRO_Shell_U::getCompressionParam($build_progress->current_build_compression);
+                if (strlen($package->Archive->getArchivePassword()) > 0 ) {
+                    $params .= ' --password ' . escapeshellarg($package->Archive->getArchivePassword());
+                }
+                $params .= ' -rq';
+
                 $command = 'cd ' . escapeshellarg($compressDir);
-                $command .= ' && ' . escapeshellcmd(DUP_PRO_Zip_U::getShellExecZipPath()) . " $compression_parameter" . ' -rq ';
+                $command .= ' && ' . escapeshellcmd(DUP_PRO_Zip_U::getShellExecZipPath()) . ' ' . $params . ' ';
                 $command .= escapeshellarg($zipPath) . ' ./';
                 $command .= " -x $exclude_string 2>&1";
-                DUP_PRO_LOG::trace("Executing shellzip command $command");
+                DUP_PRO_LOG::infoTrace("SHELL COMMAND: $command");
                 $stderr = shell_exec($command);
                 DUP_PRO_LOG::trace("After shellzip command");
                 if ($stderr != null) {
@@ -199,10 +208,10 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
                             $error_text,
                             $fix_text,
                             array(
-                                                'global' => array(
-                                                                'archive_build_mode' => 3
-                                                            )
-                                            )
+                                'global' => array(
+                                    'archive_build_mode' => 3
+                                )
+                            )
                         );
                     }
 
@@ -241,10 +250,10 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
                             $error_text,
                             $fix_text,
                             array(
-                                                                            'global' => array(
-                                                                                            'archive_build_mode' => 3
-                                                                                        )
-                                                                        )
+                                'global' => array(
+                                    'archive_build_mode' => 3
+                                )
+                            )
                         );
                         $system_global->save();
                         DUP_PRO_Log::error("$error_text  **RECOMMENDATION:$fix_text", '', false);
@@ -255,18 +264,18 @@ class DUP_PRO_ShellZip extends DUP_PRO_Archive
                     }
                 } else {
                     DUP_PRO_LOG::trace("zipinfo doesn't exist");
-                // The -1 and -2 should be constants since they signify different things
+                    // The -1 and -2 should be constants since they signify different things
                     $archive->file_count = -1;
                 }
             } else {
                 $archive->file_count = 2;
-            // Installer bak and database.sql
+                // Installer bak and database.sql
             }
 
             DUP_PRO_LOG::trace("archive file count from shellzip is $archive->file_count");
             $build_progress->archive_built = true;
             $build_progress->retries       = 0;
-            $archive->Package->update();
+            $package->update();
             $timerAllEnd = DUP_PRO_U::getMicrotime();
             $timerAllSum = DUP_PRO_U::elapsedTime($timerAllEnd, $build_progress->archive_start_time);
             $zipFileSize = @filesize($zipPath);

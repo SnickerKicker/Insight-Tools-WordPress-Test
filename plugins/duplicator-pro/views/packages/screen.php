@@ -2,9 +2,6 @@
 
 defined("ABSPATH") or die("");
 
-require_once(DUPLICATOR____PATH . '/classes/ui/class.ui.screen.base.php');
-require_once(DUPLICATOR____PATH . '/classes/entities/class.secure.global.entity.php');
-
 use Duplicator\Controllers\PackagesPageController;
 
 class DUP_PRO_Package_Screen extends DUP_PRO_UI_Screen

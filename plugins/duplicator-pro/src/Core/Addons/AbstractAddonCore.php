@@ -4,7 +4,7 @@
  * Class that collects the functions of initial checks on the requirements to run the plugin
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -184,7 +184,7 @@ abstract class AbstractAddonCore
                 'author'            => '',
                 'authorURI'         => '',
                 'requiresWP'        => '4.0',
-                'requiresPHP'       => '5.3',
+                'requiresPHP'       => '5.6.20',
                 'requiresDuplcator' => '4.0.2',
                 'requiresAddons'    => array()
             );

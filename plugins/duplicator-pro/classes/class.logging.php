@@ -21,6 +21,7 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Libs\Snap\SnapLog;
 use Duplicator\Libs\Snap\SnapString;
 use Duplicator\Libs\Snap\SnapUtil;
 use Duplicator\Utils\Crypt\CryptBlowfish;
@@ -365,7 +366,7 @@ class DUP_PRO_Log
                 $message = print_r($message, true);
             }
 
-            $ticks                     = time() + ((int) get_option('gmt_offset') * 3600);
+            $ticks                     = time() + \Duplicator\Libs\Snap\SnapWP::getGMTOffset();
             $formatted_time            = date('d-m H:i:s', $ticks);
             $logging_message           = "[{$unique_id}] {$calling_function} {$message}";
             $formatted_logging_message = "{$formatted_time} {$logging_message}\r\n";
@@ -417,7 +418,7 @@ class DUP_PRO_Log
     {
         $calling = SnapUtil::getCallingFunctionName();
         self::trace($message . '<br\>', true, $calling);
-        self::trace(print_r($object, true), true, $calling);
+        self::trace(SnapLog::v2str($object), true, $calling);
     }
 
     /**

@@ -109,12 +109,12 @@ switch ($_REQUEST['action']) {
     table.form-table {width:800px}
     div.dpro-dlg-alert-txt {line-height: 20px; font-size: 14px !important}
 
-    div.preview-area {border:2px dashed #CDCDCD; width:95%; height:175px; background:#fff; font-family: Verdana,Arial,sans-serif;}
-    div.preview-box {border:1px solid #CDCDCD; border-radius: 5px; width: 750px; margin: 10px auto 0 auto; height:130px; border-bottom: 1px dashed #999}
-    div.preview-header {height:45px; background: #F1F1F1; box-shadow: 0 5px 3px -3px #999;}
-    div.preview-title {font-size:26px; padding:10px 0 7px 15px; font-weight: bold;  min-height:30px}
+    div.preview-area {border:2px dashed #CDCDCD; width:95%; height:auto; background:#fff; font-family: Verdana,Arial,sans-serif;}
+    div.preview-box {border:1px solid #CDCDCD; border-radius: 5px; max-width: 750px; margin: 10px auto 0 auto; height:auto; border-bottom: 1px dashed #999}
+    div.preview-header {height:auto; background: #F1F1F1; box-shadow: 0 5px 3px -3px #999;}
+    div.preview-title {font-size:26px; padding:10px 0 7px 15px; font-weight: bold;  min-height:30px; display: flex; justify-content: space-between;}
     div.preview-content {padding:8px 15px 0 15px; clear:both}
-    div.preview-version {white-space:nowrap; color:#777; font-size:11px; font-style:italic; text-align:right; padding:0 15px 5px 0; line-height: 14px; font-weight:normal; float:right}
+    div.preview-version {white-space:nowrap; color:#777; font-size:11px; font-style:italic; text-align:right; padding:0 15px 5px 0; line-height: 14px; font-weight:normal; align-self: center;}
     div.preview-version a {color:#999}
     div.preview-mode {text-align: right; color:#999; font-style: italic; font-size: 12px}
     div.preview-steps {font-size: 22px;  padding: 0 0 5px 0;   border-bottom: 1px solid #D3D3D3;  font-weight: bold;  margin: 15px 0 20px 0;}
@@ -241,13 +241,13 @@ TOOL-BAR -->
                         » <a href="javascript:void(0)"><?php DUP_PRO_U::esc_html_e("info"); ?></a> » <a href="javascript:void(0)"><?php DUP_PRO_U::esc_html_e("help"); ?></a> <i class="fas fa-question-circle fa-sm"></i>
                     </div>
                 </div>
+            </div>
                 <div class="preview-content">
                     <div class="preview-mode"><?php DUP_PRO_U::esc_html_e("Mode: Standard Install"); ?></div>
                     <div class="preview-steps">
                         <?php echo wp_kses(DUP_PRO_U::__("Step <b>1</b> of 4: Deployment"), array('b')); ?>
                     </div>
                 </div>
-            </div>
         </div>
         <div class="preview-notes">
             <?php DUP_PRO_U::esc_html_e("Note: Be sure to validate the final results in the installer.php file."); ?>

@@ -8,7 +8,9 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
+use Duplicator\Installer\Utils\SecureCsrf;
 use Duplicator\Libs\Snap\SnapJson;
 
 $paramsManager = PrmMng::getInstance();
@@ -283,7 +285,7 @@ $paramsManager = PrmMng::getInstance();
 // reload page to reinit interface
 $onValidatePrams = array(
     PrmMng::PARAM_CTRL_ACTION => 'ctrl-step1',
-    DUPX_Security::CTRL_TOKEN => DUPX_CSRF::generate('ctrl-step1'),
+    Security::CTRL_TOKEN => SecureCsrf::generate('ctrl-step1'),
     PrmMng::PARAM_STEP_ACTION => DUPX_CTRL::ACTION_STEP_ON_VALIDATE
 );
 ?>
@@ -300,7 +302,7 @@ $onValidatePrams = array(
 <?php
 $switchPrams = array(
     PrmMng::PARAM_CTRL_ACTION => 'ctrl-step1',
-    DUPX_Security::CTRL_TOKEN => DUPX_CSRF::generate('ctrl-step1'),
+    Security::CTRL_TOKEN => SecureCsrf::generate('ctrl-step1'),
     PrmMng::PARAM_STEP_ACTION => DUPX_CTRL::ACTION_STEP_SET_TEMPLATE,
 );
 ?>

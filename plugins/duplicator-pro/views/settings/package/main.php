@@ -35,6 +35,8 @@ defined("ABSPATH") or die("");
 
     table#archive-build-schedule {display:none}
     span#archive-build-schedule-icon {display:none}
+
+    form.dup-settings-pack-basic table.form-table {margin-bottom:50px}
 </style>
 
 

@@ -8,18 +8,19 @@
 
 defined('ABSPATH') || defined('DUPXABSPATH') || exit;
 
+use Duplicator\Installer\Core\Security;
 use Duplicator\Installer\Core\Params\PrmMng;
 
 $paramsManager = PrmMng::getInstance();
 
-switch (DUPX_Security::getInstance()->getSecurityType()) {
-    case DUPX_Security::SECURITY_PASSWORD:
+switch (Security::getInstance()->getSecurityType()) {
+    case Security::SECURITY_PASSWORD:
         $errorMsg = 'Invalid Password! Please try again...';
         break;
-    case DUPX_Security::SECURITY_ARCHIVE:
+    case Security::SECURITY_ARCHIVE:
         $errorMsg = 'Invalid Archive name! Please try again...';
         break;
-    case DUPX_Security::SECURITY_NONE:
+    case Security::SECURITY_NONE:
     default:
         $errorMsg = '';
         break;

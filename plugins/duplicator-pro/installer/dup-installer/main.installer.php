@@ -25,7 +25,7 @@ if (!defined('DUPXABSPATH')) {
     define('DUPXABSPATH', dirname(__FILE__));
 }
 
-define('DUPX_VERSION', '4.5.2');
+define('DUPX_VERSION', '4.5.3');
 define('DUPX_INIT', str_replace('\\', '/', dirname(__FILE__)));
 define('DUPX_ROOT', preg_match('/^[\\\\\/]?$/', dirname(DUPX_INIT)) ? '/' : dirname(DUPX_INIT));
 
@@ -60,8 +60,8 @@ try {
     $exceptionError = false;
     // Log::error thotw an exception
     Log::setThrowExceptionOnError(true);
-    Log::logTime('CONTROLLER START', Log::LV_DETAILED);
 
+    Log::logTime('CONTROLLER START', Log::LV_DETAILED);
     $controller->mainController();
 } catch (Exception $e) {
     SnapUtil::obCleanAll(false);

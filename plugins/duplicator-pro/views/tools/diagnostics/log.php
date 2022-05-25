@@ -3,7 +3,7 @@
 /**
  *
  * @package Duplicator
- * @copyright (c) 2021, Snapcreek LLC
+ * @copyright (c) 2022, Snap Creek LLC
  *
  */
 
@@ -178,7 +178,7 @@ jQuery(document).ready(function ($)
     <table id="dpro-log-pnls">
         <tr>
             <td id="dpro-log-pnl-left">
-                <div class="name"><i class='fa fa-list-alt'></i> <?php echo basename($logurl); ?></div>
+                <div class="name"><i class="fas fa-file-contract fa-fw"></i> <?php echo basename($logurl); ?></div>
                 <div class="opts"><a href="javascript:void(0)" id="dup-options"><?php DUP_PRO_U::esc_html_e("Options") ?> <i class="fa fa-angle-double-right"></i></a> &nbsp;</div>
                 <br style="clear:both" />
                 <iframe id="dpro-log-content" src="<?php echo esc_url($logurl); ?>" ></iframe>
